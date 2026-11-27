@@ -1,21 +1,28 @@
-# VELVET // FRIDAY — Black Friday Shopping Collective
+# VELVET // FRIDAY — Full-Stack Next.js Black Friday Hub
 
-A TypeScript + React web app built for shared Black Friday shopping with your partner or girlfriends.
+A **Next.js App Router + TypeScript + SQLite** Black Friday deal tracker, price-history analyzer, retailer directory, and personalized shopping list app for everyone.
 
 ## Features
-- **All Deals Catalog**: Search and filter across categories, online stores, price caps, audience tags (`For Me`, `For Girlfriends`, `Shared / Couple`), and deal quality ratings.
-- **Where to Shop Online**: Verified directory of top retailers with Black Friday discount tiers, promo stacking tips, shipping minimums, and price-match policies.
-- **12-Month Price History & Fake Markdown Detector**: Interactive SVG price charts comparing current Black Friday pricing against MSRP, 90-day averages, and All-Time Lows.
-- **Smart Recommendations & Curated Edits**: Interactive deal matchmaker plus themed collections (`The Glow & Hair Vault`, `Cozy Date Night In`, `Weekend Getaway Edit`, `Stocking Stuffers & Under $75`).
-- **Shared List, Custom Shopper Budgets & Link Sharing**: Assign items to customizable shoppers, track budgets and savings, add custom URLs/items, and share your list via URL hash (`#list=...`) or JSON export/import.
+- **Full-Stack Backend (`src/app/api/*` + `node:sqlite`)**:
+  - `GET /api/deals` — Serves deals, stores, collections, and user custom items.
+  - `POST /api/fetch-deal` — Server-side URL metadata fetcher (extracts product title, store, and price when you paste a product link).
+  - `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/google`, `GET /api/auth/me`, `POST /api/auth/logout` — Email + password authentication (`scrypt` salted hashes + `HttpOnly` session cookies) and Google Sign-In (`GOOGLE_CLIENT_ID` ID-token verification or quick Google email profile).
+  - `GET/PUT /api/lists` & `PUT /api/preferences` — Persists saved lists, budgets, and style preferences in SQLite (`data/velvet-friday.db`).
+- **Categories & Gender Personalization**:
+  - Categories: *Skincare & Beauty*, *Shoes & Sneakers*, *Accessories & Jewelry*, *Apparel & Loungewear*, *Cookware & Kitchen*, *Tech & Audio*, *Fitness & Travel*, *Gaming & Home Theater*.
+  - Style/Gender Filters: *All Styles*, *Women's*, *Men's*, *Unisex & Home* + live match percentage badges.
+- **Animations, Loading Splash & Dual Color Themes**:
+  - Animated boot splash screen, shimmer skeletons, staggered card entrances, specular card hover sweeps, and Obsidian Velvet / Silk & Rose themes.
 
-## Local Development
+## Run Full-Stack Server (Next.js + SQLite Backend)
 ```bash
 npm install
 npm run dev
 ```
+Open `http://localhost:3000`.
 
-## Production Build
-```bash
-npm run build
-```
+### Optional: Live Google OAuth Setup
+Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_ID` from Google Cloud Console (adding `localhost` to Authorized JavaScript origins).
+
+## GitHub Pages Static Mirror
+GitHub Pages hosts static files only (no Node.js runtime). When deployed via `npm run build:static` to `gh-pages`, the app seamlessly uses its built-in browser persistence fallback while keeping all animations, categories, and personalization features active.

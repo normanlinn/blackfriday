@@ -1,6 +1,8 @@
+'use client';
+
 import { useState } from 'react';
-import type { PricePoint } from '../types/shopping';
-import { formatCurrency } from '../utils/deals';
+import type { PricePoint } from '@/types/shopping';
+import { formatCurrency } from '@/utils/deals';
 
 interface PriceHistoryChartProps {
   points: PricePoint[];
@@ -65,7 +67,7 @@ export function PriceHistoryChart({
       >
         <defs>
           <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent-gold)" stopOpacity="0.32" />
+            <stop offset="0%" stopColor="var(--accent-gold)" stopOpacity="0.35" />
             <stop offset="100%" stopColor="var(--accent-gold)" stopOpacity="0.02" />
           </linearGradient>
         </defs>
@@ -122,15 +124,19 @@ export function PriceHistoryChart({
           <span className="mono">{formatCurrency(activePoint.price)}</span>
         </div>
 
-        <svg viewBox={`0 0 ${width} ${height}`} className="ph-svg" role="img" aria-label="12-month price history chart">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="ph-svg"
+          role="img"
+          aria-label="12-month price history chart"
+        >
           <defs>
             <linearGradient id="phAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent-gold)" stopOpacity="0.35" />
+              <stop offset="0%" stopColor="var(--accent-gold)" stopOpacity="0.38" />
               <stop offset="100%" stopColor="var(--accent-gold)" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
-          {/* 90-Day Avg Reference Line */}
           <line
             x1={padX}
             y1={avgY}
@@ -144,7 +150,6 @@ export function PriceHistoryChart({
             90d avg {formatCurrency(avg90Day)}
           </text>
 
-          {/* All-Time Low Reference Line */}
           <line
             x1={padX}
             y1={atlY}
@@ -166,7 +171,8 @@ export function PriceHistoryChart({
           />
 
           {coords.map((pt, idx) => {
-            const isActive = hoveredIdx === idx || (hoveredIdx === null && idx === coords.length - 1);
+            const isActive =
+              hoveredIdx === idx || (hoveredIdx === null && idx === coords.length - 1);
             return (
               <g
                 key={pt.month}
@@ -174,17 +180,16 @@ export function PriceHistoryChart({
                 onMouseEnter={() => setHoveredIdx(idx)}
                 onMouseLeave={() => setHoveredIdx(null)}
               >
-                <circle
-                  cx={pt.x}
-                  cy={pt.y}
-                  r={14}
-                  fill="transparent"
-                />
+                <circle cx={pt.x} cy={pt.y} r={14} fill="transparent" />
                 <circle
                   cx={pt.x}
                   cy={pt.y}
                   r={isActive ? 5.5 : 3.5}
-                  fill={idx === coords.length - 1 ? 'var(--accent-emerald)' : 'var(--accent-gold)'}
+                  fill={
+                    idx === coords.length - 1
+                      ? 'var(--accent-emerald)'
+                      : 'var(--accent-gold)'
+                  }
                   stroke="var(--surface-elevated)"
                   strokeWidth="2"
                 />

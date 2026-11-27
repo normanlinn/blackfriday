@@ -1,3 +1,5 @@
+'use client';
+
 import { useMemo, useState } from 'react';
 import {
   Check,
@@ -9,31 +11,42 @@ import {
 } from 'lucide-react';
 import type {
   CuratedCollection,
+  GenderFocus,
   ProductItem,
   SelectionEntry,
-} from '../types/shopping';
-import { formatCurrency, getDiscountPercent, getVerdictMeta } from '../utils/deals';
+  UserPreferences,
+} from '@/types/shopping';
+import {
+  computePersonalizedScore,
+  formatCurrency,
+  getDiscountPercent,
+  getVerdictMeta,
+} from '@/utils/deals';
 
 interface RecommendationsViewProps {
   products: ProductItem[];
   collections: CuratedCollection[];
+  preferences: UserPreferences;
   selectionsMap: Record<string, SelectionEntry>;
   onToggleSelect: (product: ProductItem) => void;
   onSelectMany: (products: ProductItem[], shopperId?: string) => void;
   onOpenDetail: (product: ProductItem) => void;
+  onOpenPersonalize: () => void;
 }
-
-type AudienceChoice = 'all' | 'girlfriends' | 'me' | 'shared';
 
 export function RecommendationsView({
   products,
   collections,
+  preferences,
   selectionsMap,
   onToggleSelect,
   onSelectMany,
   onOpenDetail,
+  onOpenPersonalize,
 }: RecommendationsViewProps) {
-  const [audience, setAudience] = useState<AudienceChoice>('girlfriends');
+  const [genderChoice, setGenderChoice] = useState<'all' | GenderFocus>(
+    preferences.genderFocus,
+  );
   const [maxBudget, setMaxBudget] = useState<number | null>(null);
   const [onlyAtl, setOnlyAtl] = useState<boolean>(true);
 
@@ -41,29 +54,43 @@ export function RecommendationsView({
     return products
       .filter((p) => {
         if (p.verdict === 'watch-out') return false;
-        if (audience !== 'all' && !p.recommendedFor.includes(audience)) return false;
+        if (
+          genderChoice !== 'all' &&
+          p.genderFocus !== genderChoice &&
+          p.genderFocus !== 'unisex'
+        ) {
+          return false;
+        }
         if (maxBudget !== null && p.currentPrice > maxBudget) return false;
         if (onlyAtl && p.verdict !== 'all-time-low') return false;
         return true;
       })
       .sort((a, b) => {
-        const discA = getDiscountPercent(a.msrp, a.currentPrice);
-        const discB = getDiscountPercent(b.msrp, b.currentPrice);
-        return discB - discA;
+        const scoreDiff =
+          computePersonalizedScore(b, preferences) -
+          computePersonalizedScore(a, preferences);
+        if (scoreDiff !== 0) return scoreDiff;
+        return (
+          getDiscountPercent(b.msrp, b.currentPrice) -
+          getDiscountPercent(a.msrp, a.currentPrice)
+        );
       })
       .slice(0, 6);
-  }, [products, audience, maxBudget, onlyAtl]);
+  }, [products, genderChoice, maxBudget, onlyAtl, preferences]);
 
   return (
-    <section className="section-stack">
+    <section className="section-stack panel-reveal">
       <div className="hero-strip">
         <div>
-          <span className="eyebrow">Curated Recommendations</span>
-          <h2 className="section-heading">Smart Deal Matchmaker & Gift Guides</h2>
+          <span className="eyebrow">Personalized Recommendations</span>
+          <h2 className="section-heading">Smart Deal Matchmaker &amp; Curated Edits</h2>
           <p className="section-sub">
-            Dial in who you’re shopping for and your budget — we filter out fake markdowns and surface the strongest value drops.
+            Dial in style focus and budget — we skip fake markdowns and rank verified drops tailored to your category preferences.
           </p>
         </div>
+        <button type="button" className="btn-primary-gold" onClick={onOpenPersonalize}>
+          <Sparkles size={15} /> Customize My Preferences
+        </button>
       </div>
 
       {/* Interactive Deal Finder */}
@@ -71,24 +98,24 @@ export function RecommendationsView({
         <div className="matchmaker-controls">
           <div className="matchmaker-title">
             <Wand2 size={18} className="text-gold" />
-            <h3>Who are we finding deals for?</h3>
+            <h3>Find Top Matches For Anyone</h3>
           </div>
 
           <div className="control-clusters">
             <div className="chip-group">
               {(
                 [
-                  { id: 'girlfriends', label: '✨ For Girlfriend / Girlfriends' },
-                  { id: 'me', label: '🖤 For Me' },
-                  { id: 'shared', label: '🏡 Shared / Couple' },
-                  { id: 'all', label: '🛍️ Everyone' },
+                  { id: 'all', label: '🛍️ All Styles' },
+                  { id: 'women', label: "✨ Women's" },
+                  { id: 'men', label: "⚡ Men's" },
+                  { id: 'unisex', label: '🏡 Unisex & Home' },
                 ] as const
               ).map((opt) => (
                 <button
                   key={opt.id}
                   type="button"
-                  className={`filter-chip ${audience === opt.id ? 'active' : ''}`}
-                  onClick={() => setAudience(opt.id)}
+                  className={`filter-chip ${genderChoice === opt.id ? 'active' : ''}`}
+                  onClick={() => setGenderChoice(opt.id)}
                 >
                   {opt.label}
                 </button>
@@ -129,14 +156,22 @@ export function RecommendationsView({
               No exact match under those constraints — try turning off &ldquo;All-Time Lows Only&rdquo; or raising the budget cap.
             </div>
           ) : (
-            recommendedPicks.map((item) => {
+            recommendedPicks.map((item, idx) => {
               const disc = getDiscountPercent(item.msrp, item.currentPrice);
               const selected = Boolean(selectionsMap[item.id]);
               const verdict = getVerdictMeta(item.verdict);
+              const match = computePersonalizedScore(item, preferences);
               return (
-                <article key={item.id} className="rec-card">
+                <article
+                  key={item.id}
+                  className="rec-card card-stagger"
+                  style={{ '--stagger': idx } as React.CSSProperties}
+                >
                   <div className="rec-card-top">
                     <span className="store-pill">{item.storeName}</span>
+                    <span className="match-pill">
+                      <Sparkles size={10} /> {match}% Match
+                    </span>
                     <span className={`verdict-badge ${verdict.toneClass}`}>
                       {verdict.label}
                     </span>
@@ -174,7 +209,7 @@ export function RecommendationsView({
                         onClick={() => onToggleSelect(item)}
                       >
                         {selected ? <Check size={14} /> : <Plus size={14} />}
-                        {selected ? 'Added' : 'Select'}
+                        {selected ? 'Saved' : 'Save'}
                       </button>
                     </div>
                   </div>
@@ -192,7 +227,7 @@ export function RecommendationsView({
       </div>
 
       <div className="collections-grid">
-        {collections.map((col) => {
+        {collections.map((col, idx) => {
           const colProducts = col.productIds
             .map((id) => products.find((p) => p.id === id))
             .filter((p): p is ProductItem => Boolean(p));
@@ -201,13 +236,14 @@ export function RecommendationsView({
             colProducts.every((p) => Boolean(selectionsMap[p.id]));
 
           return (
-            <article key={col.id} className="collection-card">
+            <article
+              key={col.id}
+              className="collection-card card-stagger"
+              style={{ '--stagger': idx } as React.CSSProperties}
+            >
               <div className="collection-top">
                 <div>
-                  <span
-                    className="collection-for"
-                    style={{ color: col.accent }}
-                  >
+                  <span className="collection-for" style={{ color: col.accent }}>
                     {col.forWho}
                   </span>
                   <h3>{col.title}</h3>
@@ -217,20 +253,15 @@ export function RecommendationsView({
                   type="button"
                   className="btn-select"
                   disabled={allSelected}
-                  onClick={() =>
-                    onSelectMany(
-                      colProducts,
-                      col.id === 'cozy-night-in' ? 'shared' : 'girlfriend',
-                    )
-                  }
+                  onClick={() => onSelectMany(colProducts)}
                 >
                   {allSelected ? (
                     <>
-                      <Check size={14} /> All Selected
+                      <Check size={14} /> All Saved
                     </>
                   ) : (
                     <>
-                      <Plus size={14} /> Add All ({colProducts.length})
+                      <Plus size={14} /> Save All ({colProducts.length})
                     </>
                   )}
                 </button>
@@ -256,7 +287,7 @@ export function RecommendationsView({
                         type="button"
                         className={`mini-toggle-btn ${selected ? 'selected' : ''}`}
                         onClick={() => onToggleSelect(item)}
-                        aria-label={selected ? `Remove ${item.name}` : `Select ${item.name}`}
+                        aria-label={selected ? `Remove ${item.name}` : `Save ${item.name}`}
                       >
                         {selected ? <Check size={14} /> : <Plus size={14} />}
                       </button>

@@ -4,6 +4,7 @@ import type {
   ProductItem,
   SelectionEntry,
   ShopperProfile,
+  UserPreferences,
 } from '../types/shopping';
 
 export function getDiscountPercent(msrp: number, currentPrice: number): number {
@@ -39,6 +40,41 @@ export function computeVerdict(
     return 'great-deal';
   }
   return 'fair-deal';
+}
+
+export function computePersonalizedScore(
+  product: ProductItem,
+  prefs: UserPreferences,
+): number {
+  let score = 58;
+
+  if (prefs.genderFocus === 'all') {
+    score += 10;
+  } else if (product.genderFocus === prefs.genderFocus) {
+    score += 20;
+  } else if (product.genderFocus === 'unisex') {
+    score += 13;
+  } else {
+    score -= 12;
+  }
+
+  if (prefs.favoriteCategories.includes(product.category)) {
+    score += 16;
+  }
+
+  if (prefs.budgetTier === 'under-75') {
+    score += product.currentPrice <= 75 ? 10 : -8;
+  } else if (prefs.budgetTier === 'mid') {
+    score += product.currentPrice > 75 && product.currentPrice <= 300 ? 10 : 0;
+  } else if (prefs.budgetTier === 'luxury') {
+    score += product.currentPrice >= 250 ? 10 : 0;
+  }
+
+  if (product.verdict === 'all-time-low') score += 8;
+  else if (product.verdict === 'great-deal') score += 4;
+  else if (product.verdict === 'watch-out') score -= 18;
+
+  return Math.max(40, Math.min(99, score));
 }
 
 export function getVerdictMeta(verdict: DealVerdict): {

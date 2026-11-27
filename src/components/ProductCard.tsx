@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Check,
   ExternalLink,
@@ -6,17 +8,19 @@ import {
   Sparkles,
   Star,
 } from 'lucide-react';
-import type { ProductItem, SelectionEntry, ShopperProfile } from '../types/shopping';
+import type { ProductItem, SelectionEntry, ShopperProfile } from '@/types/shopping';
 import {
   formatCurrency,
   getDiscountPercent,
   getSavingsAmount,
   getVerdictMeta,
-} from '../utils/deals';
+} from '@/utils/deals';
 import { PriceHistoryChart } from './PriceHistoryChart';
 
 interface ProductCardProps {
   product: ProductItem;
+  index: number;
+  matchScore: number;
   selection?: SelectionEntry;
   shoppers: ShopperProfile[];
   onToggleSelect: (product: ProductItem) => void;
@@ -26,6 +30,8 @@ interface ProductCardProps {
 
 export function ProductCard({
   product,
+  index,
+  matchScore,
   selection,
   shoppers,
   onToggleSelect,
@@ -40,8 +46,25 @@ export function ProductCard({
     ? shoppers.find((s) => s.id === selection.shopperId)
     : undefined;
 
+  const genderLabel =
+    product.genderFocus === 'women'
+      ? "Women's"
+      : product.genderFocus === 'men'
+        ? "Men's"
+        : 'Unisex / All';
+
+  const genderClass =
+    product.genderFocus === 'women'
+      ? 'audience-gf'
+      : product.genderFocus === 'men'
+        ? 'audience-me'
+        : 'audience-shared';
+
   return (
-    <article className={`product-card ${isSelected ? 'is-selected' : ''}`}>
+    <article
+      className={`product-card card-stagger ${isSelected ? 'is-selected' : ''}`}
+      style={{ '--stagger': Math.min(index, 14) } as React.CSSProperties}
+    >
       <div className="pc-top-row">
         <div className="pc-meta-left">
           <span className="store-pill">{product.storeName}</span>
@@ -55,11 +78,18 @@ export function ProductCard({
       <div className="pc-body">
         <div className="pc-brand-row">
           <span className="pc-brand">{product.brand}</span>
-          <span className="pc-rating">
-            <Star size={13} fill="currentColor" />
-            {product.rating.toFixed(1)}
-            <span className="pc-reviews">({product.reviewCount})</span>
-          </span>
+          <div className="pc-right-meta">
+            {matchScore >= 78 && (
+              <span className="match-pill">
+                <Sparkles size={10} /> {matchScore}% Match
+              </span>
+            )}
+            <span className="pc-rating">
+              <Star size={13} fill="currentColor" />
+              {product.rating.toFixed(1)}
+              <span className="pc-reviews">({product.reviewCount})</span>
+            </span>
+          </div>
         </div>
 
         <h3 className="pc-title">
@@ -75,17 +105,7 @@ export function ProductCard({
         <p className="pc-why">{product.whyRecommended}</p>
 
         <div className="pc-tags">
-          {product.recommendedFor.includes('girlfriends') && (
-            <span className="audience-tag audience-gf">
-              <Sparkles size={11} /> For Girlfriends
-            </span>
-          )}
-          {product.recommendedFor.includes('me') && (
-            <span className="audience-tag audience-me">For Me</span>
-          )}
-          {product.recommendedFor.includes('shared') && (
-            <span className="audience-tag audience-shared">Shared</span>
-          )}
+          <span className={`audience-tag ${genderClass}`}>{genderLabel}</span>
           {product.vibeTags.slice(0, 2).map((tag) => (
             <span key={tag} className="vibe-tag">
               {tag}
@@ -94,7 +114,15 @@ export function ProductCard({
         </div>
       </div>
 
-      <div className="pc-sparkline-box" onClick={() => onOpenDetail(product)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenDetail(product); }}>
+      <div
+        className="pc-sparkline-box"
+        onClick={() => onOpenDetail(product)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') onOpenDetail(product);
+        }}
+      >
         <div className="pc-spark-labels">
           <span>12-mo Trend</span>
           <span>ATL {formatCurrency(product.allTimeLow)}</span>
@@ -128,16 +156,12 @@ export function ProductCard({
 
       {isSelected && selection && (
         <div className="pc-shopper-assign">
-          <span>Assigned to:</span>
+          <span>List:</span>
           <select
-            aria-label={`Assign ${product.name} to shopper`}
+            aria-label={`Assign ${product.name} to list`}
             value={selection.shopperId}
             onChange={(e) => onAssignShopper(product.id, e.target.value)}
-            style={
-              assignedShopper
-                ? { borderColor: assignedShopper.color }
-                : undefined
-            }
+            style={assignedShopper ? { borderColor: assignedShopper.color } : undefined}
           >
             {shoppers.map((shopper) => (
               <option key={shopper.id} value={shopper.id}>
@@ -156,11 +180,11 @@ export function ProductCard({
         >
           {isSelected ? (
             <>
-              <Check size={15} /> Selected
+              <Check size={15} /> Saved
             </>
           ) : (
             <>
-              <Plus size={15} /> Select
+              <Plus size={15} /> Save to List
             </>
           )}
         </button>

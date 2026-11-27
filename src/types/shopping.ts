@@ -1,11 +1,14 @@
 export type Category =
+  | 'Skincare & Beauty'
+  | 'Shoes & Sneakers'
+  | 'Accessories & Jewelry'
+  | 'Apparel & Loungewear'
+  | 'Cookware & Kitchen'
   | 'Tech & Audio'
-  | 'Beauty & Skincare'
-  | 'Fashion & Bags'
-  | 'Home & Kitchen'
-  | 'Fitness & Wellness'
-  | 'Travel & Luggage'
-  | 'Gaming & Entertainment';
+  | 'Fitness & Travel'
+  | 'Gaming & Home Theater';
+
+export type GenderFocus = 'women' | 'men' | 'unisex';
 
 export type DealVerdict = 'all-time-low' | 'great-deal' | 'fair-deal' | 'watch-out';
 
@@ -45,6 +48,7 @@ export interface ProductItem {
   name: string;
   brand: string;
   category: Category;
+  genderFocus: GenderFocus;
   storeId: string;
   storeName: string;
   url: string;
@@ -82,9 +86,31 @@ export interface CuratedCollection {
   accent: string;
 }
 
+export interface UserPreferences {
+  genderFocus: 'all' | GenderFocus;
+  favoriteCategories: Category[];
+  budgetTier: 'all' | 'under-75' | 'mid' | 'luxury';
+}
+
+export interface AuthUser {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  provider: 'password' | 'google-local' | 'firebase-google' | 'firebase-password';
+}
+
+export interface FirebaseWebConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  appId?: string;
+}
+
 export type ActiveTab = 'catalog' | 'stores' | 'recommendations' | 'watchlist';
 
 export type SortOption =
+  | 'personalized'
   | 'recommended'
   | 'discount-desc'
   | 'savings-desc'

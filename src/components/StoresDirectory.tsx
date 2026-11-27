@@ -1,3 +1,5 @@
+'use client';
+
 import { useMemo, useState } from 'react';
 import {
   BadgePercent,
@@ -7,13 +9,24 @@ import {
   Sparkles,
   Truck,
 } from 'lucide-react';
-import type { Category, ProductItem, StoreInfo } from '../types/shopping';
+import type { Category, ProductItem, StoreInfo } from '@/types/shopping';
 
 interface StoresDirectoryProps {
   stores: StoreInfo[];
   products: ProductItem[];
   onBrowseStoreDeals: (storeId: string) => void;
 }
+
+const ALL_CATEGORIES: Category[] = [
+  'Skincare & Beauty',
+  'Shoes & Sneakers',
+  'Accessories & Jewelry',
+  'Apparel & Loungewear',
+  'Cookware & Kitchen',
+  'Tech & Audio',
+  'Fitness & Travel',
+  'Gaming & Home Theater',
+];
 
 export function StoresDirectory({
   stores,
@@ -22,16 +35,6 @@ export function StoresDirectory({
 }: StoresDirectoryProps) {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'All' | Category>('All');
-
-  const allCategories: Category[] = [
-    'Tech & Audio',
-    'Beauty & Skincare',
-    'Fashion & Bags',
-    'Home & Kitchen',
-    'Fitness & Wellness',
-    'Travel & Luggage',
-    'Gaming & Entertainment',
-  ];
 
   const dealCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -57,11 +60,11 @@ export function StoresDirectory({
   }, [stores, query, selectedCategory]);
 
   return (
-    <section className="section-stack">
+    <section className="section-stack panel-reveal">
       <div className="hero-strip">
         <div>
           <span className="eyebrow">Where To Shop Online</span>
-          <h2 className="section-heading">Verified Black Friday Retailers & Stacking Playbook</h2>
+          <h2 className="section-heading">Verified Black Friday Retailers &amp; Stacking Playbook</h2>
           <p className="section-sub">
             Compare storewide discount tiers, promo stacking tricks, free-shipping minimums, and holiday price-match policies before checking out.
           </p>
@@ -83,7 +86,7 @@ export function StoresDirectory({
           <Search size={16} />
           <input
             type="search"
-            placeholder="Search stores, promos, or perks (e.g. Sephora, Rakuten, price match)..."
+            placeholder="Search stores, promos, or perks (e.g. Sephora, Mejuri, price match)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -96,7 +99,7 @@ export function StoresDirectory({
           >
             All Categories
           </button>
-          {allCategories.map((cat) => (
+          {ALL_CATEGORIES.map((cat) => (
             <button
               key={cat}
               type="button"
@@ -110,10 +113,14 @@ export function StoresDirectory({
       </div>
 
       <div className="stores-grid">
-        {filteredStores.map((store) => {
+        {filteredStores.map((store, idx) => {
           const count = dealCounts[store.id] ?? 0;
           return (
-            <article key={store.id} className="store-card">
+            <article
+              key={store.id}
+              className="store-card card-stagger"
+              style={{ '--stagger': Math.min(idx, 12) } as React.CSSProperties}
+            >
               <div className="store-card-top">
                 <div className="store-identity">
                   <span
@@ -146,7 +153,7 @@ export function StoresDirectory({
                 <div className="store-detail-row">
                   <Truck size={14} className="text-sky" />
                   <div>
-                    <strong>Shipping & Match:</strong> {store.freeShipping} · {store.priceMatch}
+                    <strong>Shipping &amp; Match:</strong> {store.freeShipping} · {store.priceMatch}
                   </div>
                 </div>
               </div>

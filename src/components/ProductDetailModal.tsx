@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect } from 'react';
 import {
   Check,
@@ -15,13 +17,13 @@ import type {
   SelectionEntry,
   ShopperProfile,
   StoreInfo,
-} from '../types/shopping';
+} from '@/types/shopping';
 import {
   formatCurrency,
   getDiscountPercent,
   getSavingsAmount,
   getVerdictMeta,
-} from '../utils/deals';
+} from '@/utils/deals';
 import { PriceHistoryChart } from './PriceHistoryChart';
 
 interface ProductDetailModalProps {
@@ -64,7 +66,7 @@ export function ProductDetailModal({
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-panel"
+        className="modal-panel modal-animate"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -155,7 +157,7 @@ export function ProductDetailModal({
           </div>
 
           <div className="modal-right">
-            <h3 className="section-mini-title">12-Month Price History & Truth Check</h3>
+            <h3 className="section-mini-title">12-Month Price History &amp; Truth Check</h3>
             <PriceHistoryChart
               points={product.priceHistory}
               msrp={product.msrp}
@@ -166,7 +168,7 @@ export function ProductDetailModal({
 
             <div className="modal-selection-box">
               <div className="modal-selection-top">
-                <h3 className="section-mini-title">Your Shared Shopping List</h3>
+                <h3 className="section-mini-title">Saved Shopping Lists</h3>
                 <button
                   type="button"
                   className={`btn-select ${selection ? 'selected' : ''}`}
@@ -178,7 +180,7 @@ export function ProductDetailModal({
                     </>
                   ) : (
                     <>
-                      <Plus size={15} /> Add to List
+                      <Plus size={15} /> Save to List
                     </>
                   )}
                 </button>
@@ -187,7 +189,7 @@ export function ProductDetailModal({
               {selection ? (
                 <div className="modal-selection-fields">
                   <label className="field-group">
-                    <span>Who is this for?</span>
+                    <span>List / Recipient</span>
                     <select
                       value={selection.shopperId}
                       onChange={(e) =>
@@ -247,7 +249,7 @@ export function ProductDetailModal({
                 </div>
               ) : (
                 <p className="muted-hint">
-                  Click &ldquo;Add to List&rdquo; to assign this item to you or your girlfriends, track your budget, and share your picks.
+                  Save this item to keep it in your account lists, track budgets, and compare prices.
                 </p>
               )}
             </div>

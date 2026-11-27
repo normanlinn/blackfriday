@@ -1,7 +1,15 @@
+'use client';
+
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
-import type { Category, ProductItem, ShopperProfile } from '../types/shopping';
-import { computeVerdict, generateDefaultHistory } from '../utils/deals';
+import { Globe, Loader2, Plus, X } from 'lucide-react';
+import { fetchDealInfoFromUrl } from '@/lib/apiClient';
+import type {
+  Category,
+  GenderFocus,
+  ProductItem,
+  ShopperProfile,
+} from '@/types/shopping';
+import { computeVerdict, generateDefaultHistory } from '@/utils/deals';
 
 interface AddCustomItemModalProps {
   open: boolean;
@@ -11,13 +19,14 @@ interface AddCustomItemModalProps {
 }
 
 const CATEGORIES: Category[] = [
-  'Beauty & Skincare',
-  'Fashion & Bags',
+  'Skincare & Beauty',
+  'Shoes & Sneakers',
+  'Accessories & Jewelry',
+  'Apparel & Loungewear',
+  'Cookware & Kitchen',
   'Tech & Audio',
-  'Home & Kitchen',
-  'Fitness & Wellness',
-  'Travel & Luggage',
-  'Gaming & Entertainment',
+  'Fitness & Travel',
+  'Gaming & Home Theater',
 ];
 
 export function AddCustomItemModal({
@@ -30,14 +39,44 @@ export function AddCustomItemModal({
   const [brand, setBrand] = useState('');
   const [storeName, setStoreName] = useState('Sephora');
   const [url, setUrl] = useState('');
-  const [category, setCategory] = useState<Category>('Beauty & Skincare');
+  const [category, setCategory] = useState<Category>('Skincare & Beauty');
+  const [genderFocus, setGenderFocus] = useState<GenderFocus>('unisex');
   const [msrp, setMsrp] = useState('120');
   const [currentPrice, setCurrentPrice] = useState('84');
   const [allTimeLow, setAllTimeLow] = useState('84');
-  const [shopperId, setShopperId] = useState(shoppers[1]?.id ?? shoppers[0]?.id ?? 'me');
+  const [shopperId, setShopperId] = useState(shoppers[0]?.id ?? 'personal');
   const [note, setNote] = useState('');
+  const [fetchingUrl, setFetchingUrl] = useState(false);
+  const [fetchHint, setFetchHint] = useState<string | null>(null);
 
   if (!open) return null;
+
+  const handleFetchFromBackend = async () => {
+    if (!url.trim()) return;
+    setFetchingUrl(true);
+    setFetchHint(null);
+    const res = await fetchDealInfoFromUrl(url.trim());
+    setFetchingUrl(false);
+
+    if (!res.ok) {
+      setFetchHint(res.error || 'Could not inspect URL.');
+      return;
+    }
+
+    if (res.title && !name.trim()) setName(res.title);
+    if (res.storeName) {
+      setStoreName(res.storeName);
+      if (!brand.trim()) setBrand(res.storeName);
+    }
+    if (res.detectedPrice) {
+      setCurrentPrice(String(res.detectedPrice));
+      setAllTimeLow(String(res.detectedPrice));
+      if (Number(msrp) < res.detectedPrice) {
+        setMsrp(String(Math.round(res.detectedPrice * 1.25)));
+      }
+    }
+    setFetchHint(res.note || 'Product info fetched from backend!');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +101,7 @@ export function AddCustomItemModal({
       name: cleanName,
       brand: brand.trim() || storeName.trim() || 'Custom Pick',
       category,
+      genderFocus,
       storeId: storeName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'custom',
       storeName: storeName.trim() || 'Online Store',
       url: safeUrl,
@@ -71,14 +111,9 @@ export function AddCustomItemModal({
       avg90Day: avg90,
       verdict,
       priceHistory: generateDefaultHistory(numMsrp, numPrice),
-      recommendedFor:
-        shopperId === 'me'
-          ? ['me']
-          : shopperId === 'shared'
-            ? ['shared']
-            : ['girlfriends'],
+      recommendedFor: ['shared'],
       vibeTags: ['Custom Pick'],
-      whyRecommended: note.trim() || 'Added directly to your shared Black Friday list.',
+      whyRecommended: note.trim() || 'Added directly to your saved Black Friday list.',
       buyAdvice:
         verdict === 'all-time-low'
           ? 'Matches your tracked all-time low price!'
@@ -93,13 +128,14 @@ export function AddCustomItemModal({
     setBrand('');
     setUrl('');
     setNote('');
+    setFetchHint(null);
     onClose();
   };
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-panel modal-panel-sm"
+        className="modal-panel modal-panel-sm modal-animate"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -107,7 +143,7 @@ export function AddCustomItemModal({
       >
         <div className="modal-header">
           <h2 id="add-custom-title" className="modal-title-sm">
-            Add Custom Deal or Wishlist Item
+            Add Custom Deal or Fetch from URL
           </h2>
           <button
             type="button"
@@ -120,12 +156,41 @@ export function AddCustomItemModal({
         </div>
 
         <form className="custom-form" onSubmit={handleSubmit}>
+          <div className="field-group field-full">
+            <span>Product Link (paste URL &amp; fetch info via backend)</span>
+            <div className="url-fetch-row">
+              <input
+                type="url"
+                placeholder="https://www.sephora.com/..."
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-select"
+                onClick={handleFetchFromBackend}
+                disabled={fetchingUrl || !url.trim()}
+              >
+                {fetchingUrl ? (
+                  <>
+                    <Loader2 size={14} className="spin" /> Fetching...
+                  </>
+                ) : (
+                  <>
+                    <Globe size={14} /> Fetch Info
+                  </>
+                )}
+              </button>
+            </div>
+            {fetchHint && <small className="text-gold">{fetchHint}</small>}
+          </div>
+
           <label className="field-group field-full">
             <span>Product Name *</span>
             <input
               type="text"
               required
-              placeholder="e.g. Rhode Peptide Lip Treatment Set"
+              placeholder="e.g. Nike Air Max 90 or Caraway Skillet"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -135,7 +200,7 @@ export function AddCustomItemModal({
             <span>Brand</span>
             <input
               type="text"
-              placeholder="e.g. Rhode"
+              placeholder="e.g. Nike"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
             />
@@ -145,7 +210,7 @@ export function AddCustomItemModal({
             <span>Store Name</span>
             <input
               type="text"
-              placeholder="e.g. Sephora, Amazon, Aritzia"
+              placeholder="e.g. Sephora, Amazon, Nike"
               value={storeName}
               onChange={(e) => setStoreName(e.target.value)}
             />
@@ -166,7 +231,19 @@ export function AddCustomItemModal({
           </label>
 
           <label className="field-group">
-            <span>Assign To</span>
+            <span>Style / Gender</span>
+            <select
+              value={genderFocus}
+              onChange={(e) => setGenderFocus(e.target.value as GenderFocus)}
+            >
+              <option value="unisex">Unisex / Home</option>
+              <option value="women">Women&apos;s</option>
+              <option value="men">Men&apos;s</option>
+            </select>
+          </label>
+
+          <label className="field-group">
+            <span>Save to List</span>
             <select
               value={shopperId}
               onChange={(e) => setShopperId(e.target.value)}
@@ -213,16 +290,6 @@ export function AddCustomItemModal({
           </label>
 
           <label className="field-group field-full">
-            <span>Product Link (optional)</span>
-            <input
-              type="url"
-              placeholder="https://..."
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-          </label>
-
-          <label className="field-group field-full">
             <span>Note (shade, size, promo code...)</span>
             <input
               type="text"
@@ -237,7 +304,7 @@ export function AddCustomItemModal({
               Cancel
             </button>
             <button type="submit" className="btn-primary-gold">
-              <Plus size={15} /> Add & Select Item
+              <Plus size={15} /> Save &amp; Add Item
             </button>
           </div>
         </form>

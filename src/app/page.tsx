@@ -1,176 +1,310 @@
-import { useEffect, useMemo, useState } from 'react';
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Database,
   Flame,
-  HeartHandshake,
+  LogIn,
+  LogOut,
   Moon,
   Plus,
+  RefreshCw,
   Search,
   ShoppingBag,
+  Sliders,
   SlidersHorizontal,
   Sparkles,
   Store,
   Sun,
   Tag,
 } from 'lucide-react';
-import { AddCustomItemModal } from './components/AddCustomItemModal';
-import { ProductCard } from './components/ProductCard';
-import { ProductDetailModal } from './components/ProductDetailModal';
-import { RecommendationsView } from './components/RecommendationsView';
-import { StoresDirectory } from './components/StoresDirectory';
-import { WatchlistView } from './components/WatchlistView';
-import { CURATED_COLLECTIONS, DEFAULT_SHOPPERS } from './data/collections';
-import { PRODUCTS } from './data/products';
-import { STORES } from './data/stores';
+import { AddCustomItemModal } from '@/components/AddCustomItemModal';
+import { AuthModal } from '@/components/AuthModal';
+import { CatalogSkeletonGrid, LoadingScreen } from '@/components/LoadingScreen';
+import { PersonalizeModal } from '@/components/PersonalizeModal';
+import { ProductCard } from '@/components/ProductCard';
+import { ProductDetailModal } from '@/components/ProductDetailModal';
+import { RecommendationsView } from '@/components/RecommendationsView';
+import { StoresDirectory } from '@/components/StoresDirectory';
+import { WatchlistView } from '@/components/WatchlistView';
+import { CURATED_COLLECTIONS, DEFAULT_SHOPPERS } from '@/data/collections';
+import { PRODUCTS } from '@/data/products';
+import { STORES } from '@/data/stores';
+import {
+  fetchDealsFromBackend,
+  fetchSessionFromBackend,
+  logoutSession,
+  syncListsToBackend,
+  syncPreferencesToBackend,
+  type AuthSessionResponse,
+} from '@/lib/apiClient';
 import type {
   ActiveTab,
+  AuthUser,
   Category,
+  CuratedCollection,
   DealVerdict,
+  GenderFocus,
   ProductItem,
   SelectionEntry,
   ShopperProfile,
   SortOption,
-} from './types/shopping';
+  StoreInfo,
+  UserPreferences,
+} from '@/types/shopping';
 import {
+  computePersonalizedScore,
   decodeSharePayload,
   encodeSharePayload,
   formatCurrency,
   getDiscountPercent,
   getSavingsAmount,
-} from './utils/deals';
+} from '@/utils/deals';
 
-const STORAGE_KEY = 'velvet-friday-state-v1';
+const GUEST_STORAGE_KEY = 'velvet-friday-guest-v2';
 
-interface StoredState {
-  shoppers: ShopperProfile[];
-  selections: SelectionEntry[];
-  customItems: ProductItem[];
-  theme: 'dark' | 'light';
-}
-
-function loadInitialState(): StoredState {
-  // Check URL hash share payload first (#list=...)
-  if (typeof window !== 'undefined' && window.location.hash.startsWith('#list=')) {
-    const encoded = window.location.hash.slice('#list='.length);
-    const decoded = decodeSharePayload(encoded);
-    if (decoded) {
-      return {
-        shoppers: decoded.shoppers.length > 0 ? decoded.shoppers : DEFAULT_SHOPPERS,
-        selections: decoded.selections,
-        customItems: decoded.customItems,
-        theme: 'dark',
-      };
-    }
-  }
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<StoredState>;
-      return {
-        shoppers:
-          Array.isArray(parsed.shoppers) && parsed.shoppers.length > 0
-            ? parsed.shoppers
-            : DEFAULT_SHOPPERS,
-        selections: Array.isArray(parsed.selections) ? parsed.selections : [],
-        customItems: Array.isArray(parsed.customItems) ? parsed.customItems : [],
-        theme: parsed.theme === 'light' ? 'light' : 'dark',
-      };
-    }
-  } catch {
-    // Ignore malformed localStorage
-  }
-
-  // Starter sample selection so first visit immediately shows how the shared list works
-  return {
-    shoppers: DEFAULT_SHOPPERS,
-    selections: [
-      {
-        productId: 'dyson-airwrap-id',
-        shopperId: 'girlfriend',
-        priority: 'must-have',
-        purchased: false,
-        quantity: 1,
-        note: 'Strawberry Bronze or Ceramic Pink',
-        addedAt: Date.now() - 10000,
-      },
-      {
-        productId: 'sony-wh1000xm5',
-        shopperId: 'me',
-        priority: 'must-have',
-        purchased: false,
-        quantity: 1,
-        note: 'Midnight Blue for travel',
-        addedAt: Date.now() - 5000,
-      },
-    ],
-    customItems: [],
-    theme: 'dark',
-  };
-}
+const DEFAULT_PREFERENCES: UserPreferences = {
+  genderFocus: 'all',
+  favoriteCategories: ['Skincare & Beauty', 'Shoes & Sneakers', 'Cookware & Kitchen'],
+  budgetTier: 'all',
+};
 
 const CATEGORIES: ('All' | Category)[] = [
   'All',
-  'Beauty & Skincare',
-  'Fashion & Bags',
+  'Skincare & Beauty',
+  'Shoes & Sneakers',
+  'Accessories & Jewelry',
+  'Apparel & Loungewear',
+  'Cookware & Kitchen',
   'Tech & Audio',
-  'Home & Kitchen',
-  'Fitness & Wellness',
-  'Travel & Luggage',
-  'Gaming & Entertainment',
+  'Fitness & Travel',
+  'Gaming & Home Theater',
 ];
 
-export function App() {
-  const initial = useMemo(() => loadInitialState(), []);
+export default function HomePage() {
+  const [booting, setBooting] = useState(true);
+  const [loadingDeals, setLoadingDeals] = useState(false);
+  const [backendSource, setBackendSource] = useState<
+    'nextjs-sqlite-backend' | 'static-browser-cache'
+  >('nextjs-sqlite-backend');
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('catalog');
-  const [theme, setTheme] = useState<'dark' | 'light'>(initial.theme);
-  const [shoppers, setShoppers] = useState<ShopperProfile[]>(initial.shoppers);
-  const [selections, setSelections] = useState<SelectionEntry[]>(initial.selections);
-  const [customItems, setCustomItems] = useState<ProductItem[]>(initial.customItems);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  // Data from backend
+  const [catalogProducts, setCatalogProducts] = useState<ProductItem[]>(PRODUCTS);
+  const [stores, setStores] = useState<StoreInfo[]>(STORES);
+  const [collections, setCollections] = useState<CuratedCollection[]>(CURATED_COLLECTIONS);
+
+  // User & saved state
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [shoppers, setShoppers] = useState<ShopperProfile[]>(DEFAULT_SHOPPERS);
+  const [selections, setSelections] = useState<SelectionEntry[]>([]);
+  const [customItems, setCustomItems] = useState<ProductItem[]>([]);
 
   // Catalog filters
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'All' | Category>('All');
+  const [genderFilter, setGenderFilter] = useState<'all' | GenderFocus>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
-  const [audienceFilter, setAudienceFilter] = useState<'all' | 'me' | 'girlfriends' | 'shared'>('all');
   const [verdictFilter, setVerdictFilter] = useState<'all' | DealVerdict>('all');
-  const [maxPriceFilter, setMaxPriceFilter] = useState<number>(1500);
-  const [sortBy, setSortBy] = useState<SortOption>('recommended');
+  const [maxPriceFilter, setMaxPriceFilter] = useState<number>(1800);
+  const [sortBy, setSortBy] = useState<SortOption>('personalized');
 
   // Modals
   const [detailProduct, setDetailProduct] = useState<ProductItem | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [personalizeModalOpen, setPersonalizeModalOpen] = useState(false);
+
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  useEffect(() => {
-    try {
-      const payload: StoredState = { shoppers, selections, customItems, theme };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      // Ignore storage quota errors
+  const applyGuestFallback = useCallback(() => {
+    if (typeof window !== 'undefined' && window.location.hash.startsWith('#list=')) {
+      const decoded = decodeSharePayload(window.location.hash.slice('#list='.length));
+      if (decoded) {
+        setShoppers(decoded.shoppers.length ? decoded.shoppers : DEFAULT_SHOPPERS);
+        setSelections(decoded.selections);
+        setCustomItems(decoded.customItems);
+        return;
+      }
     }
-  }, [shoppers, selections, customItems, theme]);
 
-  const allProducts = useMemo(() => [...customItems, ...PRODUCTS], [customItems]);
+    try {
+      const raw = localStorage.getItem(GUEST_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          shoppers?: ShopperProfile[];
+          selections?: SelectionEntry[];
+          customItems?: ProductItem[];
+          preferences?: UserPreferences;
+          theme?: 'dark' | 'light';
+        };
+        if (parsed.shoppers?.length) setShoppers(parsed.shoppers);
+        if (Array.isArray(parsed.selections)) setSelections(parsed.selections);
+        if (Array.isArray(parsed.customItems)) setCustomItems(parsed.customItems);
+        if (parsed.preferences) setPreferences(parsed.preferences);
+        if (parsed.theme === 'light' || parsed.theme === 'dark') setTheme(parsed.theme);
+        return;
+      }
+    } catch {
+      // Ignore invalid localStorage
+    }
+
+    setSelections([
+      {
+        productId: 'sony-wh1000xm5',
+        shopperId: 'personal',
+        priority: 'must-have',
+        purchased: false,
+        quantity: 1,
+        note: 'Midnight Blue',
+        addedAt: Date.now() - 5000,
+      },
+      {
+        productId: 'caraway-cookware-12pc',
+        shopperId: 'home-shared',
+        priority: 'nice-to-have',
+        purchased: false,
+        quantity: 1,
+        note: 'Sage or Cream set',
+        addedAt: Date.now() - 2000,
+      },
+    ]);
+  }, []);
+
+  // Initial backend boot with smooth splash screen
+  useEffect(() => {
+    let active = true;
+    const minSplash = new Promise((resolve) => setTimeout(resolve, 720));
+
+    async function bootstrap() {
+      const [dealsRes, sessionRes] = await Promise.all([
+        fetchDealsFromBackend(),
+        fetchSessionFromBackend(),
+        minSplash,
+      ]);
+      if (!active) return;
+
+      setCatalogProducts(dealsRes.products);
+      setStores(dealsRes.stores);
+      setCollections(dealsRes.collections);
+      setBackendSource(dealsRes.source);
+
+      if (sessionRes.user) {
+        setUser(sessionRes.user);
+        if (sessionRes.preferences) {
+          setPreferences(sessionRes.preferences);
+          setGenderFilter(sessionRes.preferences.genderFocus);
+        }
+        if (sessionRes.shoppers?.length) setShoppers(sessionRes.shoppers);
+        if (sessionRes.selections) setSelections(sessionRes.selections);
+        if (sessionRes.customItems) setCustomItems(sessionRes.customItems);
+      } else {
+        applyGuestFallback();
+      }
+
+      hydratedRef.current = true;
+      setBooting(false);
+    }
+
+    void bootstrap();
+    return () => {
+      active = false;
+    };
+  }, [applyGuestFallback]);
+
+  // Persist changes to backend (if logged in) or localStorage (guest)
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+
+    if (user) {
+      const timer = setTimeout(() => {
+        void syncListsToBackend(user, shoppers, selections, customItems);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+
+    try {
+      localStorage.setItem(
+        GUEST_STORAGE_KEY,
+        JSON.stringify({ shoppers, selections, customItems, preferences, theme }),
+      );
+    } catch {
+      // Ignore storage errors
+    }
+  }, [user, shoppers, selections, customItems, preferences, theme]);
+
+  const handleRefreshFromBackend = async () => {
+    setLoadingDeals(true);
+    const [res] = await Promise.all([
+      fetchDealsFromBackend(),
+      new Promise((r) => setTimeout(r, 380)),
+    ]);
+    setCatalogProducts(res.products);
+    setStores(res.stores);
+    setCollections(res.collections);
+    setBackendSource(res.source);
+    setLoadingDeals(false);
+    setSyncNotice('Deals & price histories refreshed');
+    setTimeout(() => setSyncNotice(null), 2600);
+  };
+
+  const handleAuthenticated = (session: AuthSessionResponse) => {
+    setUser(session.user);
+    if (session.preferences) {
+      setPreferences(session.preferences);
+      setGenderFilter(session.preferences.genderFocus);
+    }
+    if (session.shoppers?.length) setShoppers(session.shoppers);
+    if (session.selections) setSelections(session.selections);
+    if (session.customItems) setCustomItems(session.customItems);
+    setSyncNotice(`Signed in as ${session.user?.displayName}`);
+    setTimeout(() => setSyncNotice(null), 3000);
+  };
+
+  const handleLogout = async () => {
+    await logoutSession();
+    setUser(null);
+    applyGuestFallback();
+    setSyncNotice('Signed out');
+    setTimeout(() => setSyncNotice(null), 2600);
+  };
+
+  const handleSavePreferences = (next: UserPreferences) => {
+    setPreferences(next);
+    setGenderFilter(next.genderFocus);
+    if (user) {
+      void syncPreferencesToBackend(user, next);
+    }
+  };
+
+  const allProducts = useMemo(() => {
+    const map = new Map<string, ProductItem>();
+    for (const p of customItems) map.set(p.id, p);
+    for (const p of catalogProducts) {
+      if (!map.has(p.id)) map.set(p.id, p);
+    }
+    return Array.from(map.values());
+  }, [customItems, catalogProducts]);
 
   const selectionsMap = useMemo(() => {
     const map: Record<string, SelectionEntry> = {};
-    for (const s of selections) {
-      map[s.productId] = s;
-    }
+    for (const s of selections) map[s.productId] = s;
     return map;
   }, [selections]);
 
   const storesMap = useMemo(() => {
-    const map: Record<string, (typeof STORES)[number]> = {};
-    for (const st of STORES) {
-      map[st.id] = st;
-    }
+    const map: Record<string, StoreInfo> = {};
+    for (const st of stores) map[st.id] = st;
     return map;
-  }, []);
+  }, [stores]);
 
   const bagTotals = useMemo(() => {
     const prodMap = new Map(allProducts.map((p) => [p.id, p]));
@@ -189,10 +323,14 @@ export function App() {
     const q = searchQuery.trim().toLowerCase();
     const list = allProducts.filter((item) => {
       if (categoryFilter !== 'All' && item.category !== categoryFilter) return false;
-      if (storeFilter !== 'all' && item.storeId !== storeFilter) return false;
-      if (audienceFilter !== 'all' && !item.recommendedFor.includes(audienceFilter)) {
+      if (
+        genderFilter !== 'all' &&
+        item.genderFocus !== genderFilter &&
+        item.genderFocus !== 'unisex'
+      ) {
         return false;
       }
+      if (storeFilter !== 'all' && item.storeId !== storeFilter) return false;
       if (verdictFilter !== 'all' && item.verdict !== verdictFilter) return false;
       if (item.currentPrice > maxPriceFilter) return false;
 
@@ -209,6 +347,11 @@ export function App() {
 
     return [...list].sort((a, b) => {
       switch (sortBy) {
+        case 'personalized':
+          return (
+            computePersonalizedScore(b, preferences) -
+            computePersonalizedScore(a, preferences)
+          );
         case 'discount-desc':
           return (
             getDiscountPercent(b.msrp, b.currentPrice) -
@@ -228,8 +371,13 @@ export function App() {
         case 'recommended':
         default: {
           const score = (p: ProductItem) =>
-            (p.verdict === 'all-time-low' ? 30 : p.verdict === 'great-deal' ? 15 : p.verdict === 'watch-out' ? -20 : 0) +
-            getDiscountPercent(p.msrp, p.currentPrice);
+            (p.verdict === 'all-time-low'
+              ? 30
+              : p.verdict === 'great-deal'
+                ? 15
+                : p.verdict === 'watch-out'
+                  ? -20
+                  : 0) + getDiscountPercent(p.msrp, p.currentPrice);
           return score(b) - score(a);
         }
       }
@@ -238,29 +386,34 @@ export function App() {
     allProducts,
     searchQuery,
     categoryFilter,
+    genderFilter,
     storeFilter,
-    audienceFilter,
     verdictFilter,
     maxPriceFilter,
     sortBy,
+    preferences,
   ]);
 
   const inferDefaultShopperId = (product: ProductItem): string => {
-    if (product.recommendedFor.includes('girlfriends') && shoppers.some((s) => s.id === 'girlfriend')) {
-      return 'girlfriend';
+    if (product.genderFocus === 'women' && shoppers.some((s) => s.id === 'gifts-her')) {
+      return 'gifts-her';
     }
-    if (product.recommendedFor.includes('shared') && shoppers.some((s) => s.id === 'shared')) {
-      return 'shared';
+    if (product.genderFocus === 'men' && shoppers.some((s) => s.id === 'gifts-him')) {
+      return 'gifts-him';
     }
-    return shoppers[0]?.id ?? 'me';
+    if (
+      (product.category === 'Cookware & Kitchen' || product.recommendedFor.includes('shared')) &&
+      shoppers.some((s) => s.id === 'home-shared')
+    ) {
+      return 'home-shared';
+    }
+    return shoppers[0]?.id ?? 'personal';
   };
 
   const handleToggleSelect = (product: ProductItem) => {
     setSelections((prev) => {
       const exists = prev.some((s) => s.productId === product.id);
-      if (exists) {
-        return prev.filter((s) => s.productId !== product.id);
-      }
+      if (exists) return prev.filter((s) => s.productId !== product.id);
       return [
         {
           productId: product.id,
@@ -317,8 +470,8 @@ export function App() {
   };
 
   const handleAddShopper = (name: string, emoji: string, budget: number) => {
-    const palette = ['#f472b6', '#38bdf8', '#a78bfa', '#34d399', '#fbbf24'];
-    const id = `shopper-${Date.now()}`;
+    const palette = ['#ff6b8b', '#38bdf8', '#a78bfa', '#2ee59d', '#f2c96d'];
+    const id = `list-${Date.now()}`;
     setShoppers((prev) => [
       ...prev,
       {
@@ -338,7 +491,7 @@ export function App() {
   const handleDeleteShopper = (id: string) => {
     setShoppers((prev) => {
       const next = prev.filter((s) => s.id !== id);
-      const fallbackId = next[0]?.id ?? 'me';
+      const fallbackId = next[0]?.id ?? 'personal';
       setSelections((sels) =>
         sels.map((sel) => (sel.shopperId === id ? { ...sel, shopperId: fallbackId } : sel)),
       );
@@ -384,22 +537,24 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'black-friday-collective-list.json';
+    a.download = 'velvet-friday-lists.json';
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleImportJson = (raw: string): boolean => {
     try {
-      const parsed = JSON.parse(raw) as Partial<StoredState>;
+      const parsed = JSON.parse(raw) as {
+        shoppers?: ShopperProfile[];
+        selections?: SelectionEntry[];
+        customItems?: ProductItem[];
+      };
       if (!Array.isArray(parsed.shoppers) || !Array.isArray(parsed.selections)) {
         return false;
       }
       setShoppers(parsed.shoppers);
       setSelections(parsed.selections);
-      if (Array.isArray(parsed.customItems)) {
-        setCustomItems(parsed.customItems);
-      }
+      if (Array.isArray(parsed.customItems)) setCustomItems(parsed.customItems);
       return true;
     } catch {
       return false;
@@ -415,12 +570,16 @@ export function App() {
   const resetCatalogFilters = () => {
     setSearchQuery('');
     setCategoryFilter('All');
+    setGenderFilter('all');
     setStoreFilter('all');
-    setAudienceFilter('all');
     setVerdictFilter('all');
-    setMaxPriceFilter(1500);
-    setSortBy('recommended');
+    setMaxPriceFilter(1800);
+    setSortBy('personalized');
   };
+
+  if (booting) {
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="app-shell">
@@ -432,7 +591,7 @@ export function App() {
             <div>
               <span className="brand-title">VELVET // FRIDAY</span>
               <span className="brand-subtitle">
-                Shared Black Friday Intel for You &amp; Your Girlfriends
+                Curated Deals, Price History &amp; Personal Lists for All
               </span>
             </div>
           </div>
@@ -450,21 +609,21 @@ export function App() {
               className={`nav-tab ${activeTab === 'stores' ? 'active' : ''}`}
               onClick={() => setActiveTab('stores')}
             >
-              <Store size={15} /> Where to Shop ({STORES.length})
+              <Store size={15} /> Where to Shop ({stores.length})
             </button>
             <button
               type="button"
               className={`nav-tab ${activeTab === 'recommendations' ? 'active' : ''}`}
               onClick={() => setActiveTab('recommendations')}
             >
-              <Sparkles size={15} /> Recommendations
+              <Sparkles size={15} /> For You
             </button>
             <button
               type="button"
               className={`nav-tab ${activeTab === 'watchlist' ? 'active' : ''}`}
               onClick={() => setActiveTab('watchlist')}
             >
-              <ShoppingBag size={15} /> Our List ({bagTotals.count})
+              <ShoppingBag size={15} /> My Lists ({bagTotals.count})
             </button>
           </nav>
 
@@ -473,31 +632,64 @@ export function App() {
               type="button"
               className="bag-summary-pill"
               onClick={() => setActiveTab('watchlist')}
-              title="Open shared shopping list"
+              title="Open saved shopping lists"
             >
               <ShoppingBag size={14} />
               <span>{formatCurrency(bagTotals.totalCost)}</span>
-              <span className="bag-saved-tag">
-                -{formatCurrency(bagTotals.totalSaved)}
-              </span>
+              <span className="bag-saved-tag">-{formatCurrency(bagTotals.totalSaved)}</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-ghost-icon"
+              onClick={() => setPersonalizeModalOpen(true)}
+              title="Personalize gender & category feed"
+            >
+              <Sliders size={15} />
+              <span className="hide-mobile">Personalize</span>
             </button>
 
             <button
               type="button"
               className="btn-ghost-icon"
               onClick={() => setCustomModalOpen(true)}
-              title="Add any custom product"
+              title="Add custom deal or fetch URL"
             >
               <Plus size={16} />
-              <span className="hide-mobile">Add Item</span>
+              <span className="hide-mobile">Add</span>
             </button>
+
+            {user ? (
+              <div className="user-pill">
+                <span className="user-avatar">
+                  {user.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="hide-mobile user-name">{user.displayName}</span>
+                <button
+                  type="button"
+                  className="icon-trash-btn"
+                  onClick={handleLogout}
+                  title="Sign out"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn-primary-gold"
+                onClick={() => setAuthModalOpen(true)}
+              >
+                <LogIn size={14} /> Sign In
+              </button>
+            )}
 
             <button
               type="button"
               className="btn-ghost-icon"
               onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
               aria-label="Toggle color theme"
-              title="Toggle light/dark mode"
+              title="Toggle Obsidian / Silk theme"
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -506,21 +698,30 @@ export function App() {
       </header>
 
       <main className="container main-content">
+        {syncNotice && (
+          <div className="toast-banner floating-toast">
+            <Sparkles size={15} />
+            <span>{syncNotice}</span>
+          </div>
+        )}
+
         {activeTab === 'catalog' && (
-          <section className="section-stack">
+          <section className="section-stack panel-reveal">
             {/* Editorial Hero Banner */}
             <div className="hero-banner">
+              <div className="hero-aura" />
               <div className="hero-copy">
                 <span className="eyebrow">
-                  <HeartHandshake size={13} /> Black Friday 2026 Collective
+                  <Sparkles size={13} /> Black Friday 2026 · Personalized For Everyone
                 </span>
                 <h1>
-                  Shop smarter together. Track real price drops, skip fake markdowns.
+                  Real discounts, 12-month price histories &amp; curated lists for all styles.
                 </h1>
                 <p>
-                  Search curated discounts across top online stores, inspect 12-month price histories, build a shared wishlist for you and your girlfriends, and send one link to sync picks.
+                  Explore verified drops across Skincare, Shoes, Accessories, Apparel, Cookware, Tech &amp; Travel. Filter by Women&apos;s, Men&apos;s, or Unisex, sign in to save your lists, and skip fake markups.
                 </p>
               </div>
+
               <div className="hero-quick-stats">
                 <div className="hero-stat-pill">
                   <Flame size={16} className="text-emerald" />
@@ -528,14 +729,22 @@ export function App() {
                     <strong>
                       {allProducts.filter((p) => p.verdict === 'all-time-low').length} All-Time Lows
                     </strong>
-                    <span>Verified 12-month drops</span>
+                    <span>Verified 12-month price drops</span>
                   </div>
                 </div>
                 <div className="hero-stat-pill">
-                  <Store size={16} className="text-gold" />
+                  <Database size={16} className="text-gold" />
                   <div>
-                    <strong>{STORES.length} Verified Retailers</strong>
-                    <span>Promo codes &amp; stacking tips</span>
+                    <strong>
+                      {backendSource === 'nextjs-sqlite-backend'
+                        ? 'Next.js + SQLite Live'
+                        : 'Static Mirror Mode'}
+                    </strong>
+                    <span>
+                      {user
+                        ? `Synced for ${user.displayName}`
+                        : 'Sign in with Google or Email to sync'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -548,7 +757,7 @@ export function App() {
                   <Search size={17} />
                   <input
                     type="search"
-                    placeholder="Search Dyson, Sony, Sephora, cashmere, luggage, under $75..."
+                    placeholder="Search skincare, Nike sneakers, Mejuri hoops, Caraway cookware, Dyson..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -562,8 +771,8 @@ export function App() {
                       value={storeFilter}
                       onChange={(e) => setStoreFilter(e.target.value)}
                     >
-                      <option value="all">All Stores ({STORES.length})</option>
-                      {STORES.map((s) => (
+                      <option value="all">All Stores ({stores.length})</option>
+                      {stores.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name}
                         </option>
@@ -592,7 +801,8 @@ export function App() {
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as SortOption)}
                     >
-                      <option value="recommended">Sort: Top Recommended</option>
+                      <option value="personalized">Sort: Personalized Match</option>
+                      <option value="recommended">Sort: Top Deals</option>
                       <option value="discount-desc">Sort: Biggest % Off</option>
                       <option value="savings-desc">Sort: Most $ Saved</option>
                       <option value="price-asc">Sort: Price Low → High</option>
@@ -600,6 +810,15 @@ export function App() {
                       <option value="rating-desc">Sort: Highest Rated</option>
                     </select>
                   </label>
+
+                  <button
+                    type="button"
+                    className="btn-ghost-icon"
+                    onClick={handleRefreshFromBackend}
+                    title="Refresh deals from backend"
+                  >
+                    <RefreshCw size={15} className={loadingDeals ? 'spin' : ''} />
+                  </button>
                 </div>
               </div>
 
@@ -620,17 +839,17 @@ export function App() {
                 <div className="chip-group">
                   {(
                     [
-                      { id: 'all', label: 'Everyone' },
-                      { id: 'girlfriends', label: '✨ For Girlfriends' },
-                      { id: 'me', label: '🖤 For Me' },
-                      { id: 'shared', label: '🏡 Shared / Couple' },
+                      { id: 'all', label: 'All Styles' },
+                      { id: 'women', label: "✨ Women's" },
+                      { id: 'men', label: "⚡ Men's" },
+                      { id: 'unisex', label: '🏡 Unisex & Home' },
                     ] as const
                   ).map((aud) => (
                     <button
                       key={aud.id}
                       type="button"
-                      className={`filter-chip ${audienceFilter === aud.id ? 'active' : ''}`}
-                      onClick={() => setAudienceFilter(aud.id)}
+                      className={`filter-chip ${genderFilter === aud.id ? 'active' : ''}`}
+                      onClick={() => setGenderFilter(aud.id)}
                     >
                       {aud.label}
                     </button>
@@ -638,11 +857,14 @@ export function App() {
                 </div>
 
                 <div className="price-cap-slider">
-                  <span>Max Price: {maxPriceFilter >= 1500 ? 'Any' : formatCurrency(maxPriceFilter)}</span>
+                  <span>
+                    Max Price:{' '}
+                    {maxPriceFilter >= 1800 ? 'Any' : formatCurrency(maxPriceFilter)}
+                  </span>
                   <input
                     type="range"
                     min={50}
-                    max={1500}
+                    max={1800}
                     step={25}
                     value={maxPriceFilter}
                     onChange={(e) => setMaxPriceFilter(Number(e.target.value))}
@@ -663,15 +885,15 @@ export function App() {
                     className="btn-ghost-sm"
                     onClick={() => handleSelectMany(filteredProducts)}
                   >
-                    <Plus size={13} /> Select All Visible ({filteredProducts.length})
+                    <Plus size={13} /> Save All Visible ({filteredProducts.length})
                   </button>
                 )}
                 {(searchQuery ||
                   categoryFilter !== 'All' ||
+                  genderFilter !== 'all' ||
                   storeFilter !== 'all' ||
-                  audienceFilter !== 'all' ||
                   verdictFilter !== 'all' ||
-                  maxPriceFilter < 1500) && (
+                  maxPriceFilter < 1800) && (
                   <button
                     type="button"
                     className="btn-ghost-sm"
@@ -683,11 +905,15 @@ export function App() {
               </div>
             </div>
 
-            {/* Product Grid */}
-            {filteredProducts.length === 0 ? (
+            {/* Product Grid or Skeletons */}
+            {loadingDeals ? (
+              <CatalogSkeletonGrid />
+            ) : filteredProducts.length === 0 ? (
               <div className="empty-state-box">
                 <h3>No matching Black Friday deals found</h3>
-                <p>Try widening your price cap, clearing a store filter, or adding a custom item.</p>
+                <p>
+                  Try widening your price cap, switching style filters, or adding a custom URL.
+                </p>
                 <div className="empty-actions">
                   <button type="button" className="btn-select" onClick={resetCatalogFilters}>
                     Reset Filters
@@ -703,10 +929,12 @@ export function App() {
               </div>
             ) : (
               <div className="products-grid">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product, idx) => (
                   <ProductCard
                     key={product.id}
                     product={product}
+                    index={idx}
+                    matchScore={computePersonalizedScore(product, preferences)}
                     selection={selectionsMap[product.id]}
                     shoppers={shoppers}
                     onToggleSelect={handleToggleSelect}
@@ -723,7 +951,7 @@ export function App() {
 
         {activeTab === 'stores' && (
           <StoresDirectory
-            stores={STORES}
+            stores={stores}
             products={allProducts}
             onBrowseStoreDeals={handleBrowseStoreDeals}
           />
@@ -732,19 +960,23 @@ export function App() {
         {activeTab === 'recommendations' && (
           <RecommendationsView
             products={allProducts}
-            collections={CURATED_COLLECTIONS}
+            collections={collections}
+            preferences={preferences}
             selectionsMap={selectionsMap}
             onToggleSelect={handleToggleSelect}
             onSelectMany={handleSelectMany}
             onOpenDetail={setDetailProduct}
+            onOpenPersonalize={() => setPersonalizeModalOpen(true)}
           />
         )}
 
         {activeTab === 'watchlist' && (
           <WatchlistView
+            user={user}
             products={allProducts}
             selections={selections}
             shoppers={shoppers}
+            onOpenAuth={() => setAuthModalOpen(true)}
             onUpdateSelection={handleUpdateSelection}
             onRemoveSelection={handleRemoveSelection}
             onClearPurchased={handleClearPurchased}
@@ -763,9 +995,13 @@ export function App() {
       <footer className="app-footer">
         <div className="container footer-inner">
           <span>
-            VELVET // FRIDAY — Built with TypeScript &amp; React. Prices &amp; 12-month histories are curated Black Friday reference data; verify final checkout price on the retailer site.
+            VELVET // FRIDAY — Next.js TypeScript Full-Stack Shopping Hub. Verify final checkout pricing on retailer sites.
           </span>
-          <span>Saved locally in your browser · Shareable via URL link</span>
+          <span>
+            {backendSource === 'nextjs-sqlite-backend'
+              ? 'Backend: Next.js API + SQLite'
+              : 'Static Web Mode · Shareable via URL'}
+          </span>
         </div>
       </footer>
 
@@ -785,8 +1021,19 @@ export function App() {
         onClose={() => setCustomModalOpen(false)}
         onAddCustomItem={handleAddCustomItem}
       />
+
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthenticated={handleAuthenticated}
+      />
+
+      <PersonalizeModal
+        open={personalizeModalOpen}
+        preferences={preferences}
+        onClose={() => setPersonalizeModalOpen(false)}
+        onSavePreferences={handleSavePreferences}
+      />
     </div>
   );
 }
-
-export default App;

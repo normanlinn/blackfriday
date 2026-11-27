@@ -1,3 +1,5 @@
+'use client';
+
 import { useRef, useState } from 'react';
 import {
   CheckCircle2,
@@ -6,6 +8,7 @@ import {
   Download,
   ExternalLink,
   LineChart,
+  LogIn,
   Plus,
   Share2,
   Trash2,
@@ -14,21 +17,24 @@ import {
   Users,
 } from 'lucide-react';
 import type {
+  AuthUser,
   PriorityLevel,
   ProductItem,
   SelectionEntry,
   ShopperProfile,
-} from '../types/shopping';
+} from '@/types/shopping';
 import {
   formatCurrency,
   getDiscountPercent,
   getSavingsAmount,
-} from '../utils/deals';
+} from '@/utils/deals';
 
 interface WatchlistViewProps {
+  user: AuthUser | null;
   products: ProductItem[];
   selections: SelectionEntry[];
   shoppers: ShopperProfile[];
+  onOpenAuth: () => void;
   onUpdateSelection: (
     productId: string,
     patch: Partial<Pick<SelectionEntry, 'shopperId' | 'priority' | 'purchased' | 'quantity' | 'note'>>,
@@ -46,9 +52,11 @@ interface WatchlistViewProps {
 }
 
 export function WatchlistView({
+  user,
   products,
   selections,
   shoppers,
+  onOpenAuth,
   onUpdateSelection,
   onRemoveSelection,
   onClearPurchased,
@@ -131,17 +139,22 @@ export function WatchlistView({
   };
 
   return (
-    <section className="section-stack">
+    <section className="section-stack panel-reveal">
       <div className="hero-strip">
         <div>
-          <span className="eyebrow">Shared Shopping List & Budget</span>
-          <h2 className="section-heading">Our Black Friday Bag & Savings Tracker</h2>
+          <span className="eyebrow">Saved Lists &amp; Budget Tracker</span>
+          <h2 className="section-heading">Your Black Friday Bag &amp; Savings</h2>
           <p className="section-sub">
-            Assign items to you or your girlfriends, track per-person budgets, check off purchases, and share a live link with one click.
+            Organize wishlists for yourself, friends, or family, track budgets, check off purchases, and sync across sessions.
           </p>
         </div>
 
         <div className="share-toolbar">
+          {!user && (
+            <button type="button" className="btn-select" onClick={onOpenAuth}>
+              <LogIn size={15} /> Sign In to Save Forever
+            </button>
+          )}
           <button type="button" className="btn-primary-gold" onClick={handleShareClick}>
             <Share2 size={15} /> Copy Share Link
           </button>
@@ -176,7 +189,7 @@ export function WatchlistView({
       {/* Overall Summary KPIs */}
       <div className="kpi-grid">
         <div className="kpi-card">
-          <span>Selected Items</span>
+          <span>Saved Items</span>
           <strong>{rows.length}</strong>
           <small>{totals.purchasedCount} checked off</small>
         </div>
@@ -201,29 +214,29 @@ export function WatchlistView({
         </div>
       </div>
 
-      {/* Shopper Budgets & Profiles */}
+      {/* Lists & Budgets */}
       <div className="shoppers-panel">
         <div className="shoppers-panel-head">
           <div className="matchmaker-title">
             <Users size={17} className="text-gold" />
-            <h3>Shoppers & Per-Person Budgets</h3>
+            <h3>Lists &amp; Per-List Budgets</h3>
           </div>
           <form className="add-shopper-form" onSubmit={handleCreateShopper}>
             <select
-              aria-label="Shopper emoji"
+              aria-label="List emoji"
               value={newEmoji}
               onChange={(e) => setNewEmoji(e.target.value)}
             >
               <option value="💖">💖</option>
               <option value="✨">✨</option>
               <option value="🛍️">🛍️</option>
-              <option value="🎀">🎀</option>
+              <option value="⚡">⚡</option>
               <option value="🖤">🖤</option>
-              <option value="🥂">🥂</option>
+              <option value="🏡">🏡</option>
             </select>
             <input
               type="text"
-              placeholder="Add name (e.g. Maya)"
+              placeholder="New list name (e.g. Mom, Shoes)"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
             />
@@ -237,7 +250,7 @@ export function WatchlistView({
               className="budget-num-input"
             />
             <button type="submit" className="btn-select">
-              <UserPlus size={14} /> Add
+              <UserPlus size={14} /> Add List
             </button>
           </form>
         </div>
@@ -249,7 +262,10 @@ export function WatchlistView({
               (sum, r) => sum + r.product.currentPrice * r.sel.quantity,
               0,
             );
-            const pct = shopper.budget > 0 ? Math.min(100, Math.round((personTotal / shopper.budget) * 100)) : 0;
+            const pct =
+              shopper.budget > 0
+                ? Math.min(100, Math.round((personTotal / shopper.budget) * 100))
+                : 0;
             const overBudget = personTotal > shopper.budget;
 
             return (
@@ -271,7 +287,7 @@ export function WatchlistView({
                       type="button"
                       className="icon-trash-btn"
                       onClick={() => onDeleteShopper(shopper.id)}
-                      title="Remove shopper profile"
+                      title="Remove list"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -324,7 +340,7 @@ export function WatchlistView({
             className={`filter-chip ${filterShopper === 'all' ? 'active' : ''}`}
             onClick={() => setFilterShopper('all')}
           >
-            All Shoppers ({rows.length})
+            All Lists ({rows.length})
           </button>
           {shoppers.map((s) => {
             const count = rows.filter((r) => r.sel.shopperId === s.id).length;
@@ -360,12 +376,12 @@ export function WatchlistView({
         </div>
       </div>
 
-      {/* Selected Items Table / Cards */}
+      {/* Selected Items */}
       {filteredRows.length === 0 ? (
         <div className="empty-state-box">
           <h3>Your Black Friday bag is ready to fill</h3>
           <p>
-            Search all deals, inspect 12-month price histories, and select picks for you and your girlfriends.
+            Search all deals, inspect 12-month price histories, and save items into your lists.
           </p>
           <button type="button" className="btn-primary-gold" onClick={onGoToCatalog}>
             <Plus size={15} /> Browse All Deals
@@ -373,13 +389,14 @@ export function WatchlistView({
         </div>
       ) : (
         <div className="watchlist-items">
-          {filteredRows.map(({ sel, product }) => {
+          {filteredRows.map(({ sel, product }, idx) => {
             const disc = getDiscountPercent(product.msrp, product.currentPrice);
             const lineTotal = product.currentPrice * sel.quantity;
             return (
               <article
                 key={product.id}
-                className={`watchlist-row ${sel.purchased ? 'is-purchased' : ''}`}
+                className={`watchlist-row card-stagger ${sel.purchased ? 'is-purchased' : ''}`}
+                style={{ '--stagger': Math.min(idx, 12) } as React.CSSProperties}
               >
                 <button
                   type="button"
@@ -411,7 +428,7 @@ export function WatchlistView({
 
                   <div className="wl-controls-line">
                     <select
-                      aria-label="Shopper"
+                      aria-label="List"
                       value={sel.shopperId}
                       onChange={(e) =>
                         onUpdateSelection(product.id, { shopperId: e.target.value })
