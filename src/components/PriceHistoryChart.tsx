@@ -160,7 +160,7 @@ export function PriceHistoryChart({
             strokeOpacity="0.65"
           />
 
-          <path d={areaPath} fill="url(#phAreaGrad)" />
+          <path d={areaPath} fill="url(#phAreaGrad)" className="ph-area-fade" />
           <path
             d={linePath}
             fill="none"
@@ -168,6 +168,8 @@ export function PriceHistoryChart({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            pathLength={100}
+            className="ph-line-draw"
           />
 
           {coords.map((pt, idx) => {

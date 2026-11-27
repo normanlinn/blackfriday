@@ -2558,3 +2558,170 @@ a {
 .rec-card:hover .rec-thumb-img {
   transform: scale(1.05);
 }
+
+/* === Expressive Animations & Motion === */
+@keyframes marqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes bagPulse {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.12);
+    box-shadow: 0 0 20px var(--accent-gold-bg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes selectBounce {
+  0% {
+    transform: scale(0.95);
+  }
+  55% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ctaGlint {
+  0%,
+  70% {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+@keyframes drawLine {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes areaFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes progressSheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+.marquee-strip {
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(
+    90deg,
+    var(--accent-gold-bg),
+    var(--accent-rose-bg),
+    var(--accent-gold-bg)
+  );
+  padding: 7px 0;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 48px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--accent-gold);
+  animation: marqueeScroll 34s linear infinite;
+}
+
+.marquee-strip:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.bag-bump {
+  animation: bagPulse 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-select.selected {
+  animation: selectBounce 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-primary-gold::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  animation: ctaGlint 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ph-line-draw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: drawLine 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.ph-area-fade {
+  animation: areaFade 0.9s ease forwards;
+}
+
+.progress-fill {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+  animation: progressSheen 2.4s ease-in-out infinite;
+}
+
+.kpi-card,
+.collection-card,
+.shopper-card {
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease, box-shadow 0.22s ease;
+}
+
+.kpi-card:hover,
+.collection-card:hover,
+.shopper-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card);
+}

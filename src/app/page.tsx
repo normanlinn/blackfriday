@@ -116,11 +116,12 @@ export default function HomePage() {
   const [maxPriceFilter, setMaxPriceFilter] = useState<number>(1800);
   const [sortBy, setSortBy] = useState<SortOption>('personalized');
 
-  // Modals
+  // Modals & UI feedback animations
   const [detailProduct, setDetailProduct] = useState<ProductItem | null>(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [personalizeModalOpen, setPersonalizeModalOpen] = useState(false);
+  const [bagBump, setBagBump] = useState(false);
 
   const hydratedRef = useRef(false);
 
@@ -321,6 +322,13 @@ export default function HomePage() {
     }
     return { count: selections.length, totalCost, totalSaved };
   }, [allProducts, selections]);
+
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    setBagBump(true);
+    const t = setTimeout(() => setBagBump(false), 450);
+    return () => clearTimeout(t);
+  }, [bagTotals.count, bagTotals.totalCost]);
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -664,7 +672,7 @@ export default function HomePage() {
           <div className="header-actions">
             <button
               type="button"
-              className="bag-summary-pill"
+              className={`bag-summary-pill ${bagBump ? 'bag-bump' : ''}`}
               onClick={() => setActiveTab('watchlist')}
               title="Open saved shopping lists"
             >
@@ -730,6 +738,18 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Luxury Kinetic Ticker */}
+      <div className="marquee-strip" aria-hidden="true">
+        <div className="marquee-track">
+          <span>
+            ★ BLACK FRIDAY 2026 COLLECTIVE · MACY&apos;S · ZARA · H&amp;M · UNIQLO · SKECHERS · CITADEL OUTLETS · WESTFIELD OC · SEPHORA · NORDSTROM · BEST BUY · 12-MONTH PRICE HISTORIES ★
+          </span>
+          <span>
+            ★ BLACK FRIDAY 2026 COLLECTIVE · MACY&apos;S · ZARA · H&amp;M · UNIQLO · SKECHERS · CITADEL OUTLETS · WESTFIELD OC · SEPHORA · NORDSTROM · BEST BUY · 12-MONTH PRICE HISTORIES ★
+          </span>
+        </div>
+      </div>
 
       <main className="container main-content">
         {syncNotice && (
