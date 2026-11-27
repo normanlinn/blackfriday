@@ -21,6 +21,7 @@ import type {
 import {
   formatCurrency,
   getDiscountPercent,
+  getProductImageSrc,
   getSavingsAmount,
   getVerdictMeta,
 } from '@/utils/deals';
@@ -92,6 +93,14 @@ export function ProductDetailModal({
 
         <div className="modal-content-grid">
           <div className="modal-left">
+            <div className="modal-product-photo">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={getProductImageSrc(product)}
+                alt={product.name}
+                className="modal-photo-img"
+              />
+            </div>
             <p className="modal-brand">{product.brand}</p>
             <h2 id="modal-product-title" className="modal-title">
               {product.name}

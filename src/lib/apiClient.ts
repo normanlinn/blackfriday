@@ -402,6 +402,7 @@ export async function fetchDealInfoFromUrl(url: string): Promise<{
   ok: boolean;
   title?: string;
   storeName?: string;
+  imageUrl?: string | null;
   detectedPrice?: number | null;
   note?: string;
   error?: string;
@@ -417,6 +418,7 @@ export async function fetchDealInfoFromUrl(url: string): Promise<{
         ok: boolean;
         title?: string;
         storeName?: string;
+        imageUrl?: string | null;
         detectedPrice?: number | null;
         note?: string;
         error?: string;

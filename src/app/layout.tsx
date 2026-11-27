@@ -5,6 +5,7 @@ import './globals.css';
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['500', '600', '700'],
+  style: ['normal', 'italic'],
   variable: '--font-serif',
 });
 
@@ -20,9 +21,9 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'VELVET // FRIDAY — Black Friday Deals, Price History & Personal Lists',
+  title: 'VELVET // FRIDAY — Curated Black Friday Collective',
   description:
-    'Search Black Friday deals across skincare, shoes, accessories, cookware, and tech with 12-month price histories, personalized recommendations, and saved account lists.',
+    'Aesthetic Black Friday deal curation across skincare, shoes, accessories, cookware, and tech with 12-month price histories, personalized picks, and saved lists.',
 };
 
 export default function RootLayout({

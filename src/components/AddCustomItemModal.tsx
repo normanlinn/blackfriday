@@ -46,6 +46,7 @@ export function AddCustomItemModal({
   const [allTimeLow, setAllTimeLow] = useState('84');
   const [shopperId, setShopperId] = useState(shoppers[0]?.id ?? 'personal');
   const [note, setNote] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const [fetchingUrl, setFetchingUrl] = useState(false);
   const [fetchHint, setFetchHint] = useState<string | null>(null);
 
@@ -67,6 +68,9 @@ export function AddCustomItemModal({
     if (res.storeName) {
       setStoreName(res.storeName);
       if (!brand.trim()) setBrand(res.storeName);
+    }
+    if (res.imageUrl && !imageUrl.trim()) {
+      setImageUrl(res.imageUrl);
     }
     if (res.detectedPrice) {
       setCurrentPrice(String(res.detectedPrice));
@@ -120,6 +124,7 @@ export function AddCustomItemModal({
           : 'Custom item — compare against your target price before checkout.',
       rating: 4.8,
       reviewCount: 'Custom',
+      imageUrl: imageUrl.trim() || undefined,
       isCustom: true,
     };
 
@@ -128,6 +133,7 @@ export function AddCustomItemModal({
     setBrand('');
     setUrl('');
     setNote('');
+    setImageUrl('');
     setFetchHint(null);
     onClose();
   };

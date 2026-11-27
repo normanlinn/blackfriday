@@ -20,6 +20,7 @@ import {
   computePersonalizedScore,
   formatCurrency,
   getDiscountPercent,
+  getProductImageSrc,
   getVerdictMeta,
 } from '@/utils/deals';
 
@@ -167,6 +168,10 @@ export function RecommendationsView({
                   className="rec-card card-stagger"
                   style={{ '--stagger': idx } as React.CSSProperties}
                 >
+                  <div className="rec-thumb-wrap" onClick={() => onOpenDetail(item)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenDetail(item); }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={getProductImageSrc(item)} alt={item.name} className="rec-thumb-img" loading="lazy" />
+                  </div>
                   <div className="rec-card-top">
                     <span className="store-pill">{item.storeName}</span>
                     <span className="match-pill">

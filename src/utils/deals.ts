@@ -1,4 +1,5 @@
 import type {
+  Category,
   DealVerdict,
   PricePoint,
   ProductItem,
@@ -6,6 +7,24 @@ import type {
   ShopperProfile,
   UserPreferences,
 } from '../types/shopping';
+
+const CATEGORY_IMAGE_MAP: Record<Category, string> = {
+  'Skincare & Beauty': './products/skincare-beauty.jpg',
+  'Shoes & Sneakers': './products/shoes-sneakers.jpg',
+  'Accessories & Jewelry': './products/accessories-jewelry.jpg',
+  'Apparel & Loungewear': './products/apparel-loungewear.jpg',
+  'Cookware & Kitchen': './products/cookware-kitchen.jpg',
+  'Tech & Audio': './products/tech-audio.jpg',
+  'Fitness & Travel': './products/fitness-travel.jpg',
+  'Gaming & Home Theater': './products/gaming-theater.jpg',
+};
+
+export function getProductImageSrc(product: Pick<ProductItem, 'category' | 'imageUrl'>): string {
+  if (product.imageUrl && (product.imageUrl.startsWith('http') || product.imageUrl.startsWith('./') || product.imageUrl.startsWith('/'))) {
+    return product.imageUrl;
+  }
+  return CATEGORY_IMAGE_MAP[product.category] ?? './products/tech-audio.jpg';
+}
 
 export function getDiscountPercent(msrp: number, currentPrice: number): number {
   if (msrp <= 0) return 0;

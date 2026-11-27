@@ -58,6 +58,7 @@ import {
   encodeSharePayload,
   formatCurrency,
   getDiscountPercent,
+  getProductImageSrc,
   getSavingsAmount,
 } from '@/utils/deals';
 
@@ -106,6 +107,8 @@ export default function HomePage() {
 
   // Catalog filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchMode, setSearchMode] = useState<'all' | 'items' | 'categories'>('all');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<'All' | Category>('All');
   const [genderFilter, setGenderFilter] = useState<'all' | GenderFocus>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
@@ -335,14 +338,17 @@ export default function HomePage() {
       if (item.currentPrice > maxPriceFilter) return false;
 
       if (!q) return true;
-      return (
+      const matchesCategoryText = item.category.toLowerCase().includes(q);
+      const matchesItemText =
         item.name.toLowerCase().includes(q) ||
         item.brand.toLowerCase().includes(q) ||
         item.storeName.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
         item.whyRecommended.toLowerCase().includes(q) ||
-        item.vibeTags.some((t) => t.toLowerCase().includes(q))
-      );
+        item.vibeTags.some((t) => t.toLowerCase().includes(q));
+
+      if (searchMode === 'categories') return matchesCategoryText;
+      if (searchMode === 'items') return matchesItemText;
+      return matchesCategoryText || matchesItemText;
     });
 
     return [...list].sort((a, b) => {
@@ -385,6 +391,7 @@ export default function HomePage() {
   }, [
     allProducts,
     searchQuery,
+    searchMode,
     categoryFilter,
     genderFilter,
     storeFilter,
@@ -393,6 +400,33 @@ export default function HomePage() {
     sortBy,
     preferences,
   ]);
+
+  const searchSuggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const realCategories = CATEGORIES.filter((c): c is Category => c !== 'All');
+    const matchingCategories = realCategories
+      .filter((c) => !q || c.toLowerCase().includes(q))
+      .map((cat) => ({
+        category: cat,
+        count: allProducts.filter((p) => p.category === cat).length,
+      }));
+
+    const matchingItems = q
+      ? allProducts
+          .filter(
+            (p) =>
+              p.name.toLowerCase().includes(q) ||
+              p.brand.toLowerCase().includes(q) ||
+              p.storeName.toLowerCase().includes(q),
+          )
+          .slice(0, 5)
+      : [];
+
+    return {
+      categories: searchMode === 'items' ? [] : matchingCategories,
+      items: searchMode === 'categories' ? [] : matchingItems,
+    };
+  }, [allProducts, searchQuery, searchMode]);
 
   const inferDefaultShopperId = (product: ProductItem): string => {
     if (product.genderFocus === 'women' && shoppers.some((s) => s.id === 'gifts-her')) {
@@ -753,14 +787,107 @@ export default function HomePage() {
             {/* Search & Multi-Facet Filter Bar */}
             <div className="catalog-controls">
               <div className="search-sort-row">
-                <div className="search-input-wrap search-lg">
-                  <Search size={17} />
-                  <input
-                    type="search"
-                    placeholder="Search skincare, Nike sneakers, Mejuri hoops, Caraway cookware, Dyson..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                <div className="search-box-outer">
+                  <div className="search-input-wrap search-lg">
+                    <Search size={17} />
+                    <input
+                      type="search"
+                      placeholder={
+                        searchMode === 'categories'
+                          ? 'Search categories (Skincare, Shoes, Cookware, Accessories...)'
+                          : searchMode === 'items'
+                            ? 'Search items & brands (Zara, Uniqlo, H&M, Skechers, Citadel, Dyson...)'
+                            : 'Search items or categories (e.g. Skincare, Shoes, Zara, Citadel, Cookware...)'
+                      }
+                      value={searchQuery}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setTimeout(() => setSearchFocused(false), 180)}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <div className="search-mode-switch" role="group" aria-label="Search scope">
+                      {(
+                        [
+                          { id: 'all', label: 'All' },
+                          { id: 'items', label: 'Items' },
+                          { id: 'categories', label: 'Categories' },
+                        ] as const
+                      ).map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className={`mode-pill ${searchMode === m.id ? 'active' : ''}`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => setSearchMode(m.id)}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {searchFocused &&
+                    (searchSuggestions.categories.length > 0 ||
+                      searchSuggestions.items.length > 0) && (
+                      <div className="search-suggestions-dropdown">
+                        {searchSuggestions.categories.length > 0 && (
+                          <div className="sugg-section">
+                            <span className="sugg-heading">Categories</span>
+                            <div className="sugg-cat-list">
+                              {searchSuggestions.categories.map(({ category, count }) => (
+                                <button
+                                  key={category}
+                                  type="button"
+                                  className="sugg-cat-pill"
+                                  onMouseDown={() => {
+                                    setCategoryFilter(category);
+                                    setSearchQuery('');
+                                    setSearchFocused(false);
+                                  }}
+                                >
+                                  <span>{category}</span>
+                                  <small>{count} deals</small>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {searchSuggestions.items.length > 0 && (
+                          <div className="sugg-section">
+                            <span className="sugg-heading">Matching Black Friday Items</span>
+                            <div className="sugg-items-list">
+                              {searchSuggestions.items.map((item) => (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  className="sugg-item-row"
+                                  onMouseDown={() => {
+                                    setDetailProduct(item);
+                                    setSearchFocused(false);
+                                  }}
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={getProductImageSrc(item)}
+                                    alt={item.name}
+                                    className="sugg-item-thumb"
+                                  />
+                                  <div className="sugg-item-info">
+                                    <strong>{item.name}</strong>
+                                    <span>
+                                      {item.storeName} · {item.category}
+                                    </span>
+                                  </div>
+                                  <span className="sugg-item-price">
+                                    {formatCurrency(item.currentPrice)}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
 
                 <div className="select-inline-group">

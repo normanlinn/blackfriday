@@ -92,6 +92,16 @@ export async function POST(req: NextRequest) {
           /<meta[^>]+property=["']og:site_name["'][^>]+content=["']([^"']+)["']/i,
         ) ?? parsed.hostname.replace(/^www\./, '').split('.')[0];
 
+      const ogImage =
+        extractMeta(
+          html,
+          /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+        ) ??
+        extractMeta(
+          html,
+          /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+        );
+
       const priceRaw =
         extractMeta(
           html,
@@ -106,6 +116,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         title: ogTitle ? ogTitle.replace(/\s+/g, ' ').slice(0, 120) : parsed.hostname,
         storeName: ogSite ? ogSite.charAt(0).toUpperCase() + ogSite.slice(1) : 'Online Store',
+        imageUrl: ogImage && ogImage.startsWith('http') ? ogImage : null,
         detectedPrice:
           detectedPrice && Number.isFinite(detectedPrice) && detectedPrice > 0
             ? detectedPrice

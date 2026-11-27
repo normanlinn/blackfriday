@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Check,
   ExternalLink,
@@ -12,6 +13,7 @@ import type { ProductItem, SelectionEntry, ShopperProfile } from '@/types/shoppi
 import {
   formatCurrency,
   getDiscountPercent,
+  getProductImageSrc,
   getSavingsAmount,
   getVerdictMeta,
 } from '@/utils/deals';
@@ -38,6 +40,8 @@ export function ProductCard({
   onAssignShopper,
   onOpenDetail,
 }: ProductCardProps) {
+  const [imgFallback, setImgFallback] = useState(false);
+
   const discount = getDiscountPercent(product.msrp, product.currentPrice);
   const savings = getSavingsAmount(product.msrp, product.currentPrice);
   const verdictMeta = getVerdictMeta(product.verdict);
@@ -60,19 +64,44 @@ export function ProductCard({
         ? 'audience-me'
         : 'audience-shared';
 
+  const imgSrc = imgFallback
+    ? './products/tech-audio.jpg'
+    : getProductImageSrc(product);
+
   return (
     <article
       className={`product-card card-stagger ${isSelected ? 'is-selected' : ''}`}
       style={{ '--stagger': Math.min(index, 14) } as React.CSSProperties}
     >
-      <div className="pc-top-row">
-        <div className="pc-meta-left">
+      {/* Editorial Product Photo */}
+      <div
+        className="pc-media-frame"
+        onClick={() => onOpenDetail(product)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') onOpenDetail(product);
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imgSrc}
+          alt={product.name}
+          className="pc-media-img"
+          loading="lazy"
+          onError={() => setImgFallback(true)}
+        />
+        <div className="pc-media-overlay" />
+        <div className="pc-media-badges">
+          <span className={`verdict-badge ${verdictMeta.toneClass}`} title={verdictMeta.description}>
+            {verdictMeta.label}
+          </span>
+          {discount > 0 && <span className="discount-chip">-{discount}%</span>}
+        </div>
+        <div className="pc-media-bottom">
           <span className="store-pill">{product.storeName}</span>
           <span className="category-pill">{product.category}</span>
         </div>
-        <span className={`verdict-badge ${verdictMeta.toneClass}`} title={verdictMeta.description}>
-          {verdictMeta.label}
-        </span>
       </div>
 
       <div className="pc-body">
@@ -151,7 +180,6 @@ export function ProductCard({
             </span>
           )}
         </div>
-        {discount > 0 && <span className="discount-chip">-{discount}%</span>}
       </div>
 
       {isSelected && selection && (

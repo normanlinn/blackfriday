@@ -64,6 +64,7 @@ export interface ProductItem {
   buyAdvice: string;
   rating: number;
   reviewCount: string;
+  imageUrl?: string;
   isCustom?: boolean;
 }
 
