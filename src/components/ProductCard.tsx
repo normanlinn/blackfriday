@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Check,
   ExternalLink,
@@ -17,6 +17,7 @@ import {
   getSavingsAmount,
   getVerdictMeta,
 } from '@/utils/deals';
+import { useInView } from '@/lib/hooks';
 import { PriceHistoryChart } from './PriceHistoryChart';
 
 interface ProductCardProps {
@@ -41,6 +42,15 @@ export function ProductCard({
   onOpenDetail,
 }: ProductCardProps) {
   const [imgFallback, setImgFallback] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const { ref, inView } = useInView<HTMLElement>();
+
+  // Cursor-following spotlight, written straight to CSS vars (no re-render).
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty('--my', `${e.clientY - rect.top}px`);
+  }, []);
 
   const discount = getDiscountPercent(product.msrp, product.currentPrice);
   const savings = getSavingsAmount(product.msrp, product.currentPrice);
@@ -70,8 +80,10 @@ export function ProductCard({
 
   return (
     <article
-      className={`product-card card-stagger ${isSelected ? 'is-selected' : ''}`}
-      style={{ '--stagger': Math.min(index, 14) } as React.CSSProperties}
+      ref={ref}
+      className={`product-card reveal ${inView ? 'is-visible' : ''} ${isSelected ? 'is-selected' : ''}`}
+      style={{ '--stagger': index % 4 } as React.CSSProperties}
+      onPointerMove={handlePointerMove}
     >
       {/* Editorial Product Photo */}
       <div
@@ -79,17 +91,26 @@ export function ProductCard({
         onClick={() => onOpenDetail(product)}
         role="button"
         tabIndex={0}
+        aria-label={`Open details for ${product.name}`}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') onOpenDetail(product);
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenDetail(product);
+          }
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imgSrc}
           alt={product.name}
-          className="pc-media-img"
+          className={`pc-media-img ${imgLoaded ? 'is-loaded' : ''}`}
           loading="lazy"
-          onError={() => setImgFallback(true)}
+          decoding="async"
+          onLoad={() => setImgLoaded(true)}
+          onError={() => {
+            setImgFallback(true);
+            setImgLoaded(true);
+          }}
         />
         <div className="pc-media-overlay" />
         <div className="pc-media-badges">
@@ -148,8 +169,12 @@ export function ProductCard({
         onClick={() => onOpenDetail(product)}
         role="button"
         tabIndex={0}
+        aria-label={`Open details for ${product.name}`}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') onOpenDetail(product);
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenDetail(product);
+          }
         }}
       >
         <div className="pc-spark-labels">
@@ -232,6 +257,7 @@ export function ProductCard({
           rel="noopener noreferrer"
           className="btn-ghost-icon"
           title={`Shop at ${product.storeName}`}
+          aria-label={`Shop ${product.name} at ${product.storeName}`}
         >
           <ExternalLink size={15} />
         </a>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Lock, LogIn, Mail, Sparkles, UserPlus, X } from 'lucide-react';
+import { useModalBehavior } from '@/lib/hooks';
 import {
   loginWithGoogleProfile,
   loginWithPassword,
@@ -35,6 +36,7 @@ declare global {
 }
 
 export function AuthModal({ open, onClose, onAuthenticated }: AuthModalProps) {
+  useModalBehavior(open, onClose);
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

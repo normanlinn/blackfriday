@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Database,
   Flame,
@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { AddCustomItemModal } from '@/components/AddCustomItemModal';
 import { AuthModal } from '@/components/AuthModal';
+import { BrandMark } from '@/components/BrandMark';
+import { Countdown } from '@/components/Countdown';
+import { ScrollChrome } from '@/components/ScrollChrome';
 import { CatalogSkeletonGrid, LoadingScreen } from '@/components/LoadingScreen';
 import { PersonalizeModal } from '@/components/PersonalizeModal';
 import { ProductCard } from '@/components/ProductCard';
@@ -30,6 +33,8 @@ import { WatchlistView } from '@/components/WatchlistView';
 import { CURATED_COLLECTIONS, DEFAULT_SHOPPERS } from '@/data/collections';
 import { PRODUCTS } from '@/data/products';
 import { STORES } from '@/data/stores';
+import { BRAND } from '@/lib/brand';
+import { useCountUp } from '@/lib/hooks';
 import {
   fetchDealsFromBackend,
   fetchSessionFromBackend,
@@ -62,13 +67,43 @@ import {
   getSavingsAmount,
 } from '@/utils/deals';
 
+// Storage keys keep their original names so existing saved lists carry over.
 const GUEST_STORAGE_KEY = 'velvet-friday-guest-v2';
+const THEME_STORAGE_KEY = 'noir-edit-theme';
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   genderFocus: 'all',
   favoriteCategories: ['Skincare & Beauty', 'Shoes & Sneakers', 'Cookware & Kitchen'],
   budgetTier: 'all',
 };
+
+const HERO_WORDS = ['Only', 'the', 'deals', 'worth', 'your', 'Friday.'];
+
+const MARQUEE_ITEMS = [
+  'Black Friday 2026',
+  "Macy's",
+  'Zara',
+  'H&M',
+  'Uniqlo',
+  'Skechers',
+  'Citadel Outlets',
+  'Westfield OC',
+  'Sephora',
+  'Nordstrom',
+  'Best Buy',
+  '12-month price histories',
+  'No fake markdowns',
+];
+
+function CountUp({ value, prefix = '' }: { value: number; prefix?: string }) {
+  const n = useCountUp(value);
+  return (
+    <>
+      {prefix}
+      {Math.round(n).toLocaleString('en-US')}
+    </>
+  );
+}
 
 const CATEGORIES: ('All' | Category)[] = [
   'All',
@@ -84,6 +119,7 @@ const CATEGORIES: ('All' | Category)[] = [
 
 export default function HomePage() {
   const [booting, setBooting] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(true);
   const [loadingDeals, setLoadingDeals] = useState(false);
   const [backendSource, setBackendSource] = useState<
     'nextjs-sqlite-backend' | 'static-browser-cache'
@@ -91,7 +127,13 @@ export default function HomePage() {
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('catalog');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  // The boot script in layout.tsx has already applied the saved theme to <html>.
+  const [theme, setTheme] = useState<'dark' | 'light'>(() =>
+    typeof document !== 'undefined' &&
+    document.documentElement.getAttribute('data-theme') === 'light'
+      ? 'light'
+      : 'dark',
+  );
 
   // Data from backend
   const [catalogProducts, setCatalogProducts] = useState<ProductItem[]>(PRODUCTS);
@@ -124,9 +166,28 @@ export default function HomePage() {
   const [bagBump, setBagBump] = useState(false);
 
   const hydratedRef = useRef(false);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNotice = useCallback((message: string, durationMs = 2600) => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setSyncNotice(message);
+    noticeTimerRef.current = setTimeout(() => setSyncNotice(null), durationMs);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // Storage can be unavailable (private mode); the theme still applies.
+    }
   }, [theme]);
 
   const applyGuestFallback = useCallback(() => {
@@ -186,7 +247,15 @@ export default function HomePage() {
   // Initial backend boot with smooth splash screen
   useEffect(() => {
     let active = true;
-    const minSplash = new Promise((resolve) => setTimeout(resolve, 720));
+    // Play the full intro once per browser session; later reloads stay snappy.
+    let introSeen = false;
+    try {
+      introSeen = sessionStorage.getItem('noir-edit-intro') === '1';
+      sessionStorage.setItem('noir-edit-intro', '1');
+    } catch {
+      // sessionStorage unavailable: just play the intro
+    }
+    const minSplash = new Promise((resolve) => setTimeout(resolve, introSeen ? 450 : 1500));
 
     async function bootstrap() {
       const [dealsRes, sessionRes] = await Promise.all([
@@ -256,8 +325,7 @@ export default function HomePage() {
     setCollections(res.collections);
     setBackendSource(res.source);
     setLoadingDeals(false);
-    setSyncNotice('Deals & price histories refreshed');
-    setTimeout(() => setSyncNotice(null), 2600);
+    showNotice('Deals & price histories refreshed');
   };
 
   const handleAuthenticated = (session: AuthSessionResponse) => {
@@ -269,16 +337,14 @@ export default function HomePage() {
     if (session.shoppers?.length) setShoppers(session.shoppers);
     if (session.selections) setSelections(session.selections);
     if (session.customItems) setCustomItems(session.customItems);
-    setSyncNotice(`Signed in as ${session.user?.displayName}`);
-    setTimeout(() => setSyncNotice(null), 3000);
+    showNotice(`Signed in as ${session.user?.displayName}`, 3000);
   };
 
   const handleLogout = async () => {
     await logoutSession();
     setUser(null);
     applyGuestFallback();
-    setSyncNotice('Signed out');
-    setTimeout(() => setSyncNotice(null), 2600);
+    showNotice('Signed out');
   };
 
   const handleSavePreferences = (next: UserPreferences) => {
@@ -323,8 +389,13 @@ export default function HomePage() {
     return { count: selections.length, totalCost, totalSaved };
   }, [allProducts, selections]);
 
+  const bagSnapshotRef = useRef<string | null>(null);
   useEffect(() => {
     if (!hydratedRef.current) return;
+    const snapshot = `${bagTotals.count}:${bagTotals.totalCost}`;
+    const previous = bagSnapshotRef.current;
+    bagSnapshotRef.current = snapshot;
+    if (previous === null || previous === snapshot) return;
     setBagBump(true);
     const t = setTimeout(() => setBagBump(false), 450);
     return () => clearTimeout(t);
@@ -531,14 +602,13 @@ export default function HomePage() {
   };
 
   const handleDeleteShopper = (id: string) => {
-    setShoppers((prev) => {
-      const next = prev.filter((s) => s.id !== id);
-      const fallbackId = next[0]?.id ?? 'personal';
-      setSelections((sels) =>
-        sels.map((sel) => (sel.shopperId === id ? { ...sel, shopperId: fallbackId } : sel)),
-      );
-      return next;
-    });
+    const remaining = shoppers.filter((s) => s.id !== id);
+    if (remaining.length === 0) return; // always keep at least one list
+    const fallbackId = remaining[0].id;
+    setShoppers(remaining);
+    setSelections((sels) =>
+      sels.map((sel) => (sel.shopperId === id ? { ...sel, shopperId: fallbackId } : sel)),
+    );
   };
 
   const handleAddCustomItem = (
@@ -579,9 +649,12 @@ export default function HomePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'velvet-friday-lists.json';
+    a.download = 'noir-edit-lists.json';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    // Revoke on the next tick so the download has started in every browser.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const handleImportJson = (raw: string): boolean => {
@@ -607,6 +680,12 @@ export default function HomePage() {
     setStoreFilter(storeId);
     setCategoryFilter('All');
     setActiveTab('catalog');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goToTab = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    if (window.scrollY > 200) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetCatalogFilters = () => {
@@ -619,51 +698,73 @@ export default function HomePage() {
     setSortBy('personalized');
   };
 
+  const atlCount = allProducts.filter((p) => p.verdict === 'all-time-low').length;
+  const catalogSavings = allProducts.reduce(
+    (sum, p) => sum + getSavingsAmount(p.msrp, p.currentPrice),
+    0,
+  );
+
+  const splash = splashVisible ? (
+    <LoadingScreen done={!booting} onExited={() => setSplashVisible(false)} />
+  ) : null;
+
   if (booting) {
-    return <LoadingScreen />;
+    return splash;
   }
 
   return (
     <div className="app-shell">
+      {splash}
+      <ScrollChrome />
       {/* Top Header */}
       <header className="top-header">
         <div className="container header-inner">
-          <div className="brand-lockup">
-            <div className="brand-mark">VF</div>
-            <div>
-              <span className="brand-title">VELVET // FRIDAY</span>
-              <span className="brand-subtitle">
-                Curated Deals, Price History &amp; Personal Lists for All
+          <button
+            type="button"
+            className="brand-lockup"
+            onClick={() => goToTab('catalog')}
+            aria-label={`${BRAND.name} home`}
+          >
+            <BrandMark size={40} />
+            <span>
+              <span className="brand-title">
+                {BRAND.wordmark[0]}
+                <em>{BRAND.wordmark[1]}</em>
               </span>
-            </div>
-          </div>
+              <span className="brand-subtitle">{BRAND.subtitle}</span>
+            </span>
+          </button>
 
           <nav className="primary-nav" aria-label="Primary navigation">
             <button
               type="button"
               className={`nav-tab ${activeTab === 'catalog' ? 'active' : ''}`}
-              onClick={() => setActiveTab('catalog')}
+              aria-current={activeTab === 'catalog' ? 'page' : undefined}
+              onClick={() => goToTab('catalog')}
             >
               <Tag size={15} /> All Deals ({allProducts.length})
             </button>
             <button
               type="button"
               className={`nav-tab ${activeTab === 'stores' ? 'active' : ''}`}
-              onClick={() => setActiveTab('stores')}
+              aria-current={activeTab === 'stores' ? 'page' : undefined}
+              onClick={() => goToTab('stores')}
             >
               <Store size={15} /> Where to Shop ({stores.length})
             </button>
             <button
               type="button"
               className={`nav-tab ${activeTab === 'recommendations' ? 'active' : ''}`}
-              onClick={() => setActiveTab('recommendations')}
+              aria-current={activeTab === 'recommendations' ? 'page' : undefined}
+              onClick={() => goToTab('recommendations')}
             >
               <Sparkles size={15} /> For You
             </button>
             <button
               type="button"
               className={`nav-tab ${activeTab === 'watchlist' ? 'active' : ''}`}
-              onClick={() => setActiveTab('watchlist')}
+              aria-current={activeTab === 'watchlist' ? 'page' : undefined}
+              onClick={() => goToTab('watchlist')}
             >
               <ShoppingBag size={15} /> My Lists ({bagTotals.count})
             </button>
@@ -673,7 +774,7 @@ export default function HomePage() {
             <button
               type="button"
               className={`bag-summary-pill ${bagBump ? 'bag-bump' : ''}`}
-              onClick={() => setActiveTab('watchlist')}
+              onClick={() => goToTab('watchlist')}
               title="Open saved shopping lists"
             >
               <ShoppingBag size={14} />
@@ -742,18 +843,22 @@ export default function HomePage() {
       {/* Luxury Kinetic Ticker */}
       <div className="marquee-strip" aria-hidden="true">
         <div className="marquee-track">
-          <span>
-            ★ BLACK FRIDAY 2026 COLLECTIVE · MACY&apos;S · ZARA · H&amp;M · UNIQLO · SKECHERS · CITADEL OUTLETS · WESTFIELD OC · SEPHORA · NORDSTROM · BEST BUY · 12-MONTH PRICE HISTORIES ★
-          </span>
-          <span>
-            ★ BLACK FRIDAY 2026 COLLECTIVE · MACY&apos;S · ZARA · H&amp;M · UNIQLO · SKECHERS · CITADEL OUTLETS · WESTFIELD OC · SEPHORA · NORDSTROM · BEST BUY · 12-MONTH PRICE HISTORIES ★
-          </span>
+          {[0, 1].map((copy) => (
+            <span key={copy} className="marquee-group">
+              {MARQUEE_ITEMS.map((item) => (
+                <span key={item} className="marquee-item">
+                  <span className="marquee-diamond">◆</span>
+                  {item}
+                </span>
+              ))}
+            </span>
+          ))}
         </div>
       </div>
 
       <main className="container main-content">
         {syncNotice && (
-          <div className="toast-banner floating-toast">
+          <div className="toast-banner floating-toast" role="status" key={syncNotice}>
             <Sparkles size={15} />
             <span>{syncNotice}</span>
           </div>
@@ -764,48 +869,81 @@ export default function HomePage() {
             {/* Editorial Hero Banner */}
             <div className="hero-banner">
               <div className="hero-aura" />
+              <div className="hero-aura hero-aura-2" />
               <div className="hero-copy">
-                <span className="eyebrow">
-                  <Sparkles size={13} /> Black Friday 2026 · Personalized For Everyone
+                <span className="eyebrow hero-rise" style={{ '--d': 0 } as React.CSSProperties}>
+                  <Sparkles size={13} /> {BRAND.tagline}
                 </span>
-                <h1>
-                  Real discounts, 12-month price histories &amp; curated lists for all styles.
+                <h1 className="hero-title">
+                  {HERO_WORDS.map((w, i) => (
+                    <Fragment key={w}>
+                      <span className="hero-word" style={{ '--d': i + 1 } as React.CSSProperties}>
+                        {w === 'worth' ? <em className="shimmer-text">{w}</em> : w}
+                      </span>
+                      {i < HERO_WORDS.length - 1 && ' '}
+                    </Fragment>
+                  ))}
                 </h1>
-                <p>
-                  Explore verified drops across Skincare, Shoes, Accessories, Apparel, Cookware, Tech &amp; Travel. Filter by Women&apos;s, Men&apos;s, or Unisex, sign in to save your lists, and skip fake markups.
+                <p className="hero-rise" style={{ '--d': 7 } as React.CSSProperties}>
+                  Every price checked against twelve months of history, so you see real
+                  drops, not inflated &ldquo;was&rdquo; prices. Beauty, fashion, home and tech
+                  from the stores you already shop, filtered your way and saved to lists you can
+                  share.
                 </p>
+                <div className="hero-cta-row hero-rise" style={{ '--d': 8 } as React.CSSProperties}>
+                  <button
+                    type="button"
+                    className="btn-primary-gold btn-lg"
+                    onClick={() => {
+                      setVerdictFilter('all-time-low');
+                      document
+                        .getElementById('catalog-controls')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                  >
+                    <Flame size={16} /> Shop all-time lows
+                  </button>
+                  <button type="button" className="btn-outline-lg" onClick={() => goToTab('recommendations')}>
+                    <Sparkles size={15} /> Picks for you
+                  </button>
+                </div>
               </div>
 
-              <div className="hero-quick-stats">
-                <div className="hero-stat-pill">
-                  <Flame size={16} className="text-emerald" />
-                  <div>
+              <div className="hero-side">
+                <div className="hero-rise" style={{ '--d': 3 } as React.CSSProperties}>
+                  <Countdown />
+                </div>
+                <div className="hero-stats-grid">
+                  <div className="hero-stat hero-rise" style={{ '--d': 5 } as React.CSSProperties}>
                     <strong>
-                      {allProducts.filter((p) => p.verdict === 'all-time-low').length} All-Time Lows
+                      <CountUp value={allProducts.length} />
                     </strong>
-                    <span>Verified 12-month price drops</span>
+                    <span>curated deals</span>
+                  </div>
+                  <div className="hero-stat hero-rise" style={{ '--d': 6 } as React.CSSProperties}>
+                    <strong className="text-emerald">
+                      <CountUp value={atlCount} />
+                    </strong>
+                    <span>all-time lows</span>
+                  </div>
+                  <div className="hero-stat hero-rise" style={{ '--d': 7 } as React.CSSProperties}>
+                    <strong className="text-gold">
+                      <CountUp value={catalogSavings} prefix="$" />
+                    </strong>
+                    <span>total markdowns</span>
                   </div>
                 </div>
-                <div className="hero-stat-pill">
-                  <Database size={16} className="text-gold" />
-                  <div>
-                    <strong>
-                      {backendSource === 'nextjs-sqlite-backend'
-                        ? 'Next.js + SQLite Live'
-                        : 'Static Mirror Mode'}
-                    </strong>
-                    <span>
-                      {user
-                        ? `Synced for ${user.displayName}`
-                        : 'Sign in with Google or Email to sync'}
-                    </span>
-                  </div>
+                <div className="hero-sync-note hero-rise" style={{ '--d': 8 } as React.CSSProperties}>
+                  <Database size={13} />
+                  {backendSource === 'nextjs-sqlite-backend' ? 'Live server sync' : 'Saved in this browser'}
+                  {' · '}
+                  {user ? `Signed in as ${user.displayName}` : 'Sign in to sync across devices'}
                 </div>
               </div>
             </div>
 
             {/* Search & Multi-Facet Filter Bar */}
-            <div className="catalog-controls">
+            <div className="catalog-controls" id="catalog-controls">
               <div className="search-sort-row">
                 <div className="search-box-outer">
                   <div className="search-input-wrap search-lg">
@@ -1134,20 +1272,29 @@ export default function HomePage() {
             onCopyShareLink={handleCopyShareLink}
             onExportJson={handleExportJson}
             onImportJson={handleImportJson}
-            onGoToCatalog={() => setActiveTab('catalog')}
+            onGoToCatalog={() => goToTab('catalog')}
           />
         )}
       </main>
 
       <footer className="app-footer">
         <div className="container footer-inner">
-          <span>
-            VELVET // FRIDAY — Next.js TypeScript Full-Stack Shopping Hub. Verify final checkout pricing on retailer sites.
-          </span>
-          <span>
+          <div className="footer-brand">
+            <BrandMark size={30} />
+            <div>
+              <strong>
+                {BRAND.wordmark[0]} <em>{BRAND.wordmark[1]}</em>
+              </strong>
+              <span>
+                Prices change fast on Black Friday. Always confirm the final price at checkout.
+              </span>
+            </div>
+          </div>
+          <span className="footer-meta">
             {backendSource === 'nextjs-sqlite-backend'
-              ? 'Backend: Next.js API + SQLite'
-              : 'Static Web Mode · Shareable via URL'}
+              ? 'Synced with the Noir Edit server'
+              : 'Static edition · lists save in your browser and share by link'}
+            {' · © 2026'}
           </span>
         </div>
       </footer>

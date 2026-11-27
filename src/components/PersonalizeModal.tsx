@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, Sliders, Sparkles, X } from 'lucide-react';
+import { useModalBehavior } from '@/lib/hooks';
 import type { Category, GenderFocus, UserPreferences } from '@/types/shopping';
 
 interface PersonalizeModalProps {
@@ -27,6 +28,7 @@ export function PersonalizeModal({
   onClose,
   onSavePreferences,
 }: PersonalizeModalProps) {
+  useModalBehavior(open, onClose);
   if (!open) return null;
 
   const toggleCategory = (cat: Category) => {

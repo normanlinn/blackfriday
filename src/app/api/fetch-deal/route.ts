@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         signal: controller.signal,
         headers: {
           'User-Agent':
-            'Mozilla/5.0 (compatible; VelvetFridayBot/1.0; +https://github.com/normanlinn/black-friday-collective)',
+            'Mozilla/5.0 (compatible; NoirEditBot/1.0; +https://github.com/normanlinn/blackfriday)',
           Accept: 'text/html,application/xhtml+xml',
         },
       });

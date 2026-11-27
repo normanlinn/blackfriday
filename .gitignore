@@ -7,3 +7,7 @@ data/*.db-shm
 .DS_Store
 .env.local
 *.local
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+.api-backup-*

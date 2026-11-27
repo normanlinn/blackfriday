@@ -4,7 +4,9 @@ import path from 'node:path';
 
 const root = process.cwd();
 const apiDir = path.join(root, 'src', 'app', 'api');
-const backupDir = path.join('/tmp', `vf-api-backup-${Date.now()}`);
+// API routes can't be statically exported, so move them aside during the build.
+// Keep the backup next to the project so the rename never crosses filesystems.
+const backupDir = path.join(root, `.api-backup-${Date.now()}`);
 
 try {
   if (fs.existsSync(apiDir)) {

@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import {
   Check,
   ExternalLink,
@@ -11,6 +10,7 @@ import {
   Store,
   X,
 } from 'lucide-react';
+import { useModalBehavior } from '@/lib/hooks';
 import type {
   PriorityLevel,
   ProductItem,
@@ -49,14 +49,7 @@ export function ProductDetailModal({
   onToggleSelect,
   onUpdateSelection,
 }: ProductDetailModalProps) {
-  useEffect(() => {
-    if (!product) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [product, onClose]);
+  useModalBehavior(Boolean(product), onClose);
 
   if (!product) return null;
 

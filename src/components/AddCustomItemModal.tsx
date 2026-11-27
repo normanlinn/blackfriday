@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Globe, Loader2, Plus, X } from 'lucide-react';
+import { useModalBehavior } from '@/lib/hooks';
 import { fetchDealInfoFromUrl } from '@/lib/apiClient';
 import type {
   Category,
@@ -35,6 +36,7 @@ export function AddCustomItemModal({
   onClose,
   onAddCustomItem,
 }: AddCustomItemModalProps) {
+  useModalBehavior(open, onClose);
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [storeName, setStoreName] = useState('Sephora');
