@@ -10,6 +10,7 @@ import type {
   ProductItem,
   ShopperProfile,
 } from '@/types/shopping';
+import { CATEGORIES } from '@/types/shopping';
 import { computeVerdict, generateDefaultHistory } from '@/utils/deals';
 
 interface AddCustomItemModalProps {
@@ -19,16 +20,6 @@ interface AddCustomItemModalProps {
   onAddCustomItem: (product: ProductItem, shopperId: string, note: string) => void;
 }
 
-const CATEGORIES: Category[] = [
-  'Skincare & Beauty',
-  'Shoes & Sneakers',
-  'Accessories & Jewelry',
-  'Apparel & Loungewear',
-  'Cookware & Kitchen',
-  'Tech & Audio',
-  'Fitness & Travel',
-  'Gaming & Home Theater',
-];
 
 export function AddCustomItemModal({
   open,

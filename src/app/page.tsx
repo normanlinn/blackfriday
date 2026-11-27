@@ -43,6 +43,7 @@ import {
   syncPreferencesToBackend,
   type AuthSessionResponse,
 } from '@/lib/apiClient';
+import { CATEGORIES } from '@/types/shopping';
 import type {
   ActiveTab,
   AuthUser,
@@ -77,6 +78,9 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   budgetTier: 'all',
 };
 
+const PRICE_MIN = 50;
+const PRICE_MAX = 1800;
+
 const HERO_WORDS = ['Only', 'the', 'deals', 'worth', 'your', 'Friday.'];
 
 const MARQUEE_ITEMS = [
@@ -105,17 +109,7 @@ function CountUp({ value, prefix = '' }: { value: number; prefix?: string }) {
   );
 }
 
-const CATEGORIES: ('All' | Category)[] = [
-  'All',
-  'Skincare & Beauty',
-  'Shoes & Sneakers',
-  'Accessories & Jewelry',
-  'Apparel & Loungewear',
-  'Cookware & Kitchen',
-  'Tech & Audio',
-  'Fitness & Travel',
-  'Gaming & Home Theater',
-];
+const CATEGORY_FILTERS: readonly ('All' | Category)[] = ['All', ...CATEGORIES];
 
 export default function HomePage() {
   const [booting, setBooting] = useState(true);
@@ -155,7 +149,7 @@ export default function HomePage() {
   const [genderFilter, setGenderFilter] = useState<'all' | GenderFocus>('all');
   const [storeFilter, setStoreFilter] = useState<string>('all');
   const [verdictFilter, setVerdictFilter] = useState<'all' | DealVerdict>('all');
-  const [maxPriceFilter, setMaxPriceFilter] = useState<number>(1800);
+  const [maxPriceFilter, setMaxPriceFilter] = useState<number>(PRICE_MAX);
   const [sortBy, setSortBy] = useState<SortOption>('personalized');
 
   // Modals & UI feedback animations
@@ -364,6 +358,12 @@ export default function HomePage() {
     return Array.from(map.values());
   }, [customItems, catalogProducts]);
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { All: allProducts.length };
+    for (const p of allProducts) counts[p.category] = (counts[p.category] ?? 0) + 1;
+    return counts;
+  }, [allProducts]);
+
   const selectionsMap = useMemo(() => {
     const map: Record<string, SelectionEntry> = {};
     for (const s of selections) map[s.productId] = s;
@@ -482,7 +482,7 @@ export default function HomePage() {
 
   const searchSuggestions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const realCategories = CATEGORIES.filter((c): c is Category => c !== 'All');
+    const realCategories = CATEGORIES;
     const matchingCategories = realCategories
       .filter((c) => !q || c.toLowerCase().includes(q))
       .map((cat) => ({
@@ -694,7 +694,7 @@ export default function HomePage() {
     setGenderFilter('all');
     setStoreFilter('all');
     setVerdictFilter('all');
-    setMaxPriceFilter(1800);
+    setMaxPriceFilter(PRICE_MAX);
     setSortBy('personalized');
   };
 
@@ -1108,14 +1108,16 @@ export default function HomePage() {
               </div>
 
               <div className="chip-scroll">
-                {CATEGORIES.map((cat) => (
+                {CATEGORY_FILTERS.map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     className={`filter-chip ${categoryFilter === cat ? 'active' : ''}`}
+                    aria-pressed={categoryFilter === cat}
                     onClick={() => setCategoryFilter(cat)}
                   >
                     {cat}
+                    <span className="chip-count">{categoryCounts[cat] ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -1141,19 +1143,38 @@ export default function HomePage() {
                   ))}
                 </div>
 
-                <div className="price-cap-slider">
-                  <span>
-                    Max Price:{' '}
-                    {maxPriceFilter >= 1800 ? 'Any' : formatCurrency(maxPriceFilter)}
-                  </span>
+                <div
+                  className="price-cap-slider"
+                  style={
+                    {
+                      '--pct': `${((maxPriceFilter - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * 100}%`,
+                    } as React.CSSProperties
+                  }
+                >
+                  <div className="price-cap-head">
+                    <label htmlFor="max-price" className="price-cap-label">
+                      Max price
+                    </label>
+                    <span key={maxPriceFilter >= PRICE_MAX ? 'any' : 'set'} className="price-cap-value">
+                      {maxPriceFilter >= PRICE_MAX ? 'Any' : formatCurrency(maxPriceFilter)}
+                    </span>
+                  </div>
                   <input
+                    id="max-price"
                     type="range"
-                    min={50}
-                    max={1800}
+                    min={PRICE_MIN}
+                    max={PRICE_MAX}
                     step={25}
                     value={maxPriceFilter}
+                    aria-valuetext={
+                      maxPriceFilter >= PRICE_MAX ? 'Any price' : formatCurrency(maxPriceFilter)
+                    }
                     onChange={(e) => setMaxPriceFilter(Number(e.target.value))}
                   />
+                  <div className="price-cap-scale" aria-hidden="true">
+                    <span>{formatCurrency(PRICE_MIN)}</span>
+                    <span>Any</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1178,7 +1199,7 @@ export default function HomePage() {
                   genderFilter !== 'all' ||
                   storeFilter !== 'all' ||
                   verdictFilter !== 'all' ||
-                  maxPriceFilter < 1800) && (
+                  maxPriceFilter < PRICE_MAX) && (
                   <button
                     type="button"
                     className="btn-ghost-sm"

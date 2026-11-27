@@ -7,6 +7,7 @@ import type {
   ShopperProfile,
   UserPreferences,
 } from '../types/shopping';
+import { PRODUCT_PHOTOS, type ProductPhoto } from '../data/photos';
 
 const CATEGORY_IMAGE_MAP: Record<Category, string> = {
   'Skincare & Beauty': './products/skincare-beauty.jpg',
@@ -17,13 +18,31 @@ const CATEGORY_IMAGE_MAP: Record<Category, string> = {
   'Tech & Audio': './products/tech-audio.jpg',
   'Fitness & Travel': './products/fitness-travel.jpg',
   'Gaming & Home Theater': './products/gaming-theater.jpg',
+  'Home & Furniture': './products/home-furniture.jpg',
+  'Smart Home': './products/smart-home.jpg',
+  'Toys & Kids': './products/toys-kids.jpg',
+  'Outdoor & Camping': './products/outdoor-camping.jpg',
+  'Pet Supplies': './products/pet-supplies.jpg',
 };
 
-export function getProductImageSrc(product: Pick<ProductItem, 'category' | 'imageUrl'>): string {
-  if (product.imageUrl && (product.imageUrl.startsWith('http') || product.imageUrl.startsWith('./') || product.imageUrl.startsWith('/'))) {
-    return product.imageUrl;
+/**
+ * Image for a product, in priority order: a user-supplied URL (custom items),
+ * a vetted photo of the actual product, then the category photo.
+ */
+export function getProductImageSrc(
+  product: Pick<ProductItem, 'id' | 'category' | 'imageUrl'>,
+): string {
+  const custom = product.imageUrl;
+  if (custom && (custom.startsWith('http') || custom.startsWith('./') || custom.startsWith('/'))) {
+    return custom;
   }
+  const photo = PRODUCT_PHOTOS[product.id];
+  if (photo) return `./products/items/${photo.file}`;
   return CATEGORY_IMAGE_MAP[product.category] ?? './products/tech-audio.jpg';
+}
+
+export function getPhotoCredit(productId: string): ProductPhoto | undefined {
+  return PRODUCT_PHOTOS[productId];
 }
 
 export function getDiscountPercent(msrp: number, currentPrice: number): number {

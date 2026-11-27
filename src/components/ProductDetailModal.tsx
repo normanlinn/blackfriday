@@ -21,6 +21,7 @@ import type {
 import {
   formatCurrency,
   getDiscountPercent,
+  getPhotoCredit,
   getProductImageSrc,
   getSavingsAmount,
   getVerdictMeta,
@@ -52,6 +53,8 @@ export function ProductDetailModal({
   useModalBehavior(Boolean(product), onClose);
 
   if (!product) return null;
+
+  const photoCredit = getPhotoCredit(product.id);
 
   const discount = getDiscountPercent(product.msrp, product.currentPrice);
   const savings = getSavingsAmount(product.msrp, product.currentPrice);
@@ -94,6 +97,17 @@ export function ProductDetailModal({
                 className="modal-photo-img"
               />
             </div>
+            {photoCredit ? (
+              <p className="photo-credit">
+                Photo:{' '}
+                <a href={photoCredit.source} target="_blank" rel="noopener noreferrer">
+                  {photoCredit.artist}
+                </a>{' '}
+                · {photoCredit.license} · Wikimedia Commons
+              </p>
+            ) : (
+              <p className="photo-credit">Representative category photo</p>
+            )}
             <p className="modal-brand">{product.brand}</p>
             <h2 id="modal-product-title" className="modal-title">
               {product.name}

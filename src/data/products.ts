@@ -1,6 +1,7 @@
 import type { ProductItem } from '../types/shopping';
+import { EXPANSION_PRODUCTS } from './expansion';
 
-export const PRODUCTS: ProductItem[] = [
+const CORE_PRODUCTS: ProductItem[] = [
   // === SKINCARE & BEAUTY ===
   {
     id: 'dyson-airwrap-id',
@@ -1881,3 +1882,5 @@ export const PRODUCTS: ProductItem[] = [
     reviewCount: '3.3k',
   },
 ];
+
+export const PRODUCTS: ProductItem[] = [...CORE_PRODUCTS, ...EXPANSION_PRODUCTS];

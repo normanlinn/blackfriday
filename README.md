@@ -14,7 +14,14 @@ inflated "was" prices get flagged.
   "Live now" timer through Cyber Monday) and count-up stats.
 - **Motion that stays out of the way** – cards reveal on scroll, a cursor spotlight on hover,
   images that sharpen in as they load, a reading-progress bar, a condensing header and
-  back-to-top. All of it respects `prefers-reduced-motion`.
+  back-to-top. All of it respects `prefers-reduced-motion`, and costly effects (live blur, blending,
+  fixed backgrounds) are kept off the scrolling content so it stays smooth.
+- **90 deals, 26 stores, 13 categories** – beauty, shoes, accessories, apparel, kitchen,
+  tech, fitness & travel, gaming, home & furniture, smart home, toys & kids, outdoor &
+  camping and pet supplies. Prices are Black Friday 2026 estimates.
+- **Real product photos** – 42 hand-checked, freely licensed photos from Wikimedia Commons,
+  credited in the product view and in [PHOTO_CREDITS.md](PHOTO_CREDITS.md). Items without a
+  matching photo use a category photo.
 - **Deal intelligence** – all-time-low, verified-drop and fake-markdown verdicts with
   12-month charts.
 - **Search & filters** – items or categories, store, verdict, style, max price and seven sorts.

@@ -1,12 +1,21 @@
-export type Category =
-  | 'Skincare & Beauty'
-  | 'Shoes & Sneakers'
-  | 'Accessories & Jewelry'
-  | 'Apparel & Loungewear'
-  | 'Cookware & Kitchen'
-  | 'Tech & Audio'
-  | 'Fitness & Travel'
-  | 'Gaming & Home Theater';
+/** Single source of truth for categories, in display order. */
+export const CATEGORIES = [
+  'Skincare & Beauty',
+  'Shoes & Sneakers',
+  'Accessories & Jewelry',
+  'Apparel & Loungewear',
+  'Cookware & Kitchen',
+  'Tech & Audio',
+  'Fitness & Travel',
+  'Gaming & Home Theater',
+  'Home & Furniture',
+  'Smart Home',
+  'Toys & Kids',
+  'Outdoor & Camping',
+  'Pet Supplies',
+] as const;
+
+export type Category = (typeof CATEGORIES)[number];
 
 export type GenderFocus = 'women' | 'men' | 'unisex';
 

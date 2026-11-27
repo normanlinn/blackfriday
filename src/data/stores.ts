@@ -1,6 +1,7 @@
 import type { StoreInfo } from '../types/shopping';
+import { EXPANSION_STORES, STORE_CATEGORY_ADDITIONS } from './expansion';
 
-export const STORES: StoreInfo[] = [
+const CORE_STORES: StoreInfo[] = [
   {
     id: 'sephora',
     name: 'Sephora',
@@ -310,4 +311,14 @@ export const STORES: StoreInfo[] = [
     accentColor: '#e11d48',
     rating: 4.7,
   },
+];
+
+export const STORES: StoreInfo[] = [
+  ...CORE_STORES.map((store) => {
+    const extra = STORE_CATEGORY_ADDITIONS[store.id];
+    return extra
+      ? { ...store, categories: Array.from(new Set([...store.categories, ...extra])) }
+      : store;
+  }),
+  ...EXPANSION_STORES,
 ];

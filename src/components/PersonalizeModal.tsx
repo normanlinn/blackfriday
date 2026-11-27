@@ -3,6 +3,7 @@
 import { Check, Sliders, Sparkles, X } from 'lucide-react';
 import { useModalBehavior } from '@/lib/hooks';
 import type { Category, GenderFocus, UserPreferences } from '@/types/shopping';
+import { CATEGORIES } from '@/types/shopping';
 
 interface PersonalizeModalProps {
   open: boolean;
@@ -11,16 +12,7 @@ interface PersonalizeModalProps {
   onSavePreferences: (prefs: UserPreferences) => void;
 }
 
-const ALL_CATEGORIES: Category[] = [
-  'Skincare & Beauty',
-  'Shoes & Sneakers',
-  'Accessories & Jewelry',
-  'Apparel & Loungewear',
-  'Cookware & Kitchen',
-  'Tech & Audio',
-  'Fitness & Travel',
-  'Gaming & Home Theater',
-];
+const ALL_CATEGORIES: readonly Category[] = CATEGORIES;
 
 export function PersonalizeModal({
   open,

@@ -10,6 +10,7 @@ import {
   Truck,
 } from 'lucide-react';
 import type { Category, ProductItem, StoreInfo } from '@/types/shopping';
+import { CATEGORIES } from '@/types/shopping';
 
 interface StoresDirectoryProps {
   stores: StoreInfo[];
@@ -17,16 +18,7 @@ interface StoresDirectoryProps {
   onBrowseStoreDeals: (storeId: string) => void;
 }
 
-const ALL_CATEGORIES: Category[] = [
-  'Skincare & Beauty',
-  'Shoes & Sneakers',
-  'Accessories & Jewelry',
-  'Apparel & Loungewear',
-  'Cookware & Kitchen',
-  'Tech & Audio',
-  'Fitness & Travel',
-  'Gaming & Home Theater',
-];
+const ALL_CATEGORIES: readonly Category[] = CATEGORIES;
 
 export function StoresDirectory({
   stores,
