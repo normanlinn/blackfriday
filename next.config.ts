@@ -6,8 +6,8 @@ const nextConfig: NextConfig = {
   ...(isStaticExport
     ? {
         output: 'export',
-        basePath: '/black-friday-collective',
-        assetPrefix: '/black-friday-collective/',
+        basePath: '/blackfriday',
+        assetPrefix: '/blackfriday/',
         images: { unoptimized: true },
       }
     : {}),
