@@ -16,15 +16,23 @@ inflated "was" prices get flagged.
   images that sharpen in as they load, a reading-progress bar, a condensing header and
   back-to-top. All of it respects `prefers-reduced-motion`, and costly effects (live blur, blending,
   fixed backgrounds) are kept off the scrolling content so it stays smooth.
-- **90 deals, 26 stores, 13 categories** – beauty, shoes, accessories, apparel, kitchen,
+- **148 deals, 44 stores, 13 categories** – beauty, shoes, accessories, apparel, kitchen,
   tech, fitness & travel, gaming, home & furniture, smart home, toys & kids, outdoor &
-  camping and pet supplies. Prices are Black Friday 2026 estimates.
+  camping and pet supplies — from Zara, H&M, Uniqlo, Nike, Adidas and Levi’s to Costco, Apple,
+  IKEA and Chewy. Prices are Black Friday 2026 estimates.
 - **Real product photos** – 42 hand-checked, freely licensed photos from Wikimedia Commons,
   credited in the product view and in [PHOTO_CREDITS.md](PHOTO_CREDITS.md). Items without a
   matching photo use a category photo.
 - **Deal intelligence** – all-time-low, verified-drop and fake-markdown verdicts with
   12-month charts.
-- **Search & filters** – items or categories, store, verdict, style, max price and seven sorts.
+- **Shop by brand** – every store as a tile with its deal count and best discount; one tap
+  filters to that store.
+- **Search** – every word counts ("zara coat", "nike shoes"), across names, brands, stores,
+  categories and tags. Active filters show as removable pills, with "Search everywhere"
+  when a filter hides results.
+- **Price history for every deal** – a 12-month chart you can tap or hover, plus a
+  month-by-month table showing how each price compares to today.
+- **Filters** – category, store, verdict, style, max price and seven sorts.
 - **Lists** – save deals to multiple lists with budgets, priorities and notes. Share by link,
   export or import JSON.
 - **Accounts** – email + password (`scrypt` hashes, `HttpOnly` cookies) or Google sign-in.

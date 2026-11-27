@@ -178,8 +178,11 @@ export function ProductCard({
         }}
       >
         <div className="pc-spark-labels">
-          <span>12-mo Trend</span>
-          <span>ATL {formatCurrency(product.allTimeLow)}</span>
+          <span>12-month price history</span>
+          <span>
+            Low {formatCurrency(product.allTimeLow)} · High{' '}
+            {formatCurrency(Math.max(...product.priceHistory.map((p) => p.price), product.msrp))}
+          </span>
         </div>
         <PriceHistoryChart
           points={product.priceHistory}
@@ -248,14 +251,14 @@ export function ProductCard({
           onClick={() => onOpenDetail(product)}
           title="View 12-month price history & buy advice"
         >
-          <LineChart size={15} /> History
+          <LineChart size={15} /> Price history
         </button>
 
         <a
           href={product.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-ghost-icon"
+          className="btn-ghost-icon btn-icon"
           title={`Shop at ${product.storeName}`}
           aria-label={`Shop ${product.name} at ${product.storeName}`}
         >

@@ -202,9 +202,10 @@ export function RecommendationsView({
                     <div className="rec-btn-pair">
                       <button
                         type="button"
-                        className="btn-ghost-icon"
+                        className="btn-ghost-icon btn-icon"
                         onClick={() => onOpenDetail(item)}
-                        title="Price History"
+                        title="Price history"
+                        aria-label={`Price history for ${item.name}`}
                       >
                         <LineChart size={14} />
                       </button>

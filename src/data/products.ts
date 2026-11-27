@@ -1,5 +1,7 @@
 import type { ProductItem } from '../types/shopping';
 import { EXPANSION_PRODUCTS } from './expansion';
+import { BRAND_PRODUCTS } from './brands';
+import { FASHION_PRODUCTS } from './fashion';
 
 const CORE_PRODUCTS: ProductItem[] = [
   // === SKINCARE & BEAUTY ===
@@ -1883,4 +1885,9 @@ const CORE_PRODUCTS: ProductItem[] = [
   },
 ];
 
-export const PRODUCTS: ProductItem[] = [...CORE_PRODUCTS, ...EXPANSION_PRODUCTS];
+export const PRODUCTS: ProductItem[] = [
+  ...CORE_PRODUCTS,
+  ...EXPANSION_PRODUCTS,
+  ...FASHION_PRODUCTS,
+  ...BRAND_PRODUCTS,
+];

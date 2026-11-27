@@ -493,9 +493,10 @@ export function WatchlistView({
                   <div className="wl-row-btns">
                     <button
                       type="button"
-                      className="btn-ghost-icon"
+                      className="btn-ghost-icon btn-icon"
                       onClick={() => onOpenDetail(product)}
-                      title="View Price History"
+                      title="Price history"
+                      aria-label={`Price history for ${product.name}`}
                     >
                       <LineChart size={14} />
                     </button>
@@ -503,8 +504,9 @@ export function WatchlistView({
                       href={product.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-ghost-icon"
-                      title="Open Store"
+                      className="btn-ghost-icon btn-icon"
+                      title="Open store"
+                      aria-label={`Open ${product.name} at the store`}
                     >
                       <ExternalLink size={14} />
                     </a>

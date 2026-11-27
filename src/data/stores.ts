@@ -1,5 +1,7 @@
 import type { StoreInfo } from '../types/shopping';
 import { EXPANSION_STORES, STORE_CATEGORY_ADDITIONS } from './expansion';
+import { BRAND_STORES } from './brands';
+import { FASHION_STORES } from './fashion';
 
 const CORE_STORES: StoreInfo[] = [
   {
@@ -321,4 +323,6 @@ export const STORES: StoreInfo[] = [
       : store;
   }),
   ...EXPANSION_STORES,
+  ...FASHION_STORES,
+  ...BRAND_STORES,
 ];

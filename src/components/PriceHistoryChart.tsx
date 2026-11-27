@@ -181,6 +181,12 @@ export function PriceHistoryChart({
                 className="ph-point-group"
                 onMouseEnter={() => setHoveredIdx(idx)}
                 onMouseLeave={() => setHoveredIdx(null)}
+                onClick={() => setHoveredIdx(idx)}
+                onFocus={() => setHoveredIdx(idx)}
+                onBlur={() => setHoveredIdx(null)}
+                tabIndex={0}
+                role="button"
+                aria-label={`${pt.month}: ${formatCurrency(pt.price)}${pt.note ? `, ${pt.note}` : ''}`}
               >
                 <circle cx={pt.x} cy={pt.y} r={14} fill="transparent" />
                 <circle
@@ -203,6 +209,37 @@ export function PriceHistoryChart({
           })}
         </svg>
       </div>
+
+      <details className="ph-table-wrap">
+        <summary>See every tracked price</summary>
+        <table className="ph-table">
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Price</th>
+              <th scope="col">vs. today</th>
+            </tr>
+          </thead>
+          <tbody>
+            {points.map((p, idx) => {
+              const diff = p.price - currentPrice;
+              const isNow = idx === points.length - 1;
+              return (
+                <tr key={`${p.month}-${idx}`} className={isNow ? 'is-now' : undefined}>
+                  <th scope="row">
+                    {p.month}
+                    {p.note && <span className="ph-table-note">{p.note}</span>}
+                  </th>
+                  <td>{formatCurrency(p.price)}</td>
+                  <td className={diff > 0 ? 'text-emerald' : diff < 0 ? 'text-rose' : undefined}>
+                    {isNow ? 'Now' : diff === 0 ? 'Same' : `${diff > 0 ? '+' : '−'}${formatCurrency(Math.abs(diff))}`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </details>
     </div>
   );
 }

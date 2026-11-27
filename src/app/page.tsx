@@ -17,10 +17,12 @@ import {
   Store,
   Sun,
   Tag,
+  X,
 } from 'lucide-react';
 import { AddCustomItemModal } from '@/components/AddCustomItemModal';
 import { AuthModal } from '@/components/AuthModal';
 import { BrandMark } from '@/components/BrandMark';
+import { BrandRail } from '@/components/BrandRail';
 import { Countdown } from '@/components/Countdown';
 import { ScrollChrome } from '@/components/ScrollChrome';
 import { CatalogSkeletonGrid, LoadingScreen } from '@/components/LoadingScreen';
@@ -66,6 +68,7 @@ import {
   getDiscountPercent,
   getProductImageSrc,
   getSavingsAmount,
+  getVerdictMeta,
 } from '@/utils/deals';
 
 // Storage keys keep their original names so existing saved lists carry over.
@@ -79,7 +82,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 const PRICE_MIN = 50;
-const PRICE_MAX = 1800;
+const PRICE_MAX = 2000;
 
 const HERO_WORDS = ['Only', 'the', 'deals', 'worth', 'your', 'Friday.'];
 
@@ -98,6 +101,19 @@ const MARQUEE_ITEMS = [
   '12-month price histories',
   'No fake markdowns',
 ];
+
+/** Lower-cased text a search can match: name, brand, store, category, tags and notes. */
+function searchText(p: ProductItem): { item: string; category: string } {
+  return {
+    item: [p.name, p.brand, p.storeName, p.whyRecommended, ...p.vibeTags].join(' ').toLowerCase(),
+    category: p.category.toLowerCase(),
+  };
+}
+
+/** Every word of the query must appear somewhere ("zara coat", "nike shoes"). */
+function matchesQuery(haystack: string, tokens: string[]): boolean {
+  return tokens.every((t) => haystack.includes(t) || (t.endsWith('s') && haystack.includes(t.slice(0, -1))));
+}
 
 function CountUp({ value, prefix = '' }: { value: number; prefix?: string }) {
   const n = useCountUp(value);
@@ -402,7 +418,7 @@ export default function HomePage() {
   }, [bagTotals.count, bagTotals.totalCost]);
 
   const filteredProducts = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const tokens = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const list = allProducts.filter((item) => {
       if (categoryFilter !== 'All' && item.category !== categoryFilter) return false;
       if (
@@ -416,18 +432,11 @@ export default function HomePage() {
       if (verdictFilter !== 'all' && item.verdict !== verdictFilter) return false;
       if (item.currentPrice > maxPriceFilter) return false;
 
-      if (!q) return true;
-      const matchesCategoryText = item.category.toLowerCase().includes(q);
-      const matchesItemText =
-        item.name.toLowerCase().includes(q) ||
-        item.brand.toLowerCase().includes(q) ||
-        item.storeName.toLowerCase().includes(q) ||
-        item.whyRecommended.toLowerCase().includes(q) ||
-        item.vibeTags.some((t) => t.toLowerCase().includes(q));
-
-      if (searchMode === 'categories') return matchesCategoryText;
-      if (searchMode === 'items') return matchesItemText;
-      return matchesCategoryText || matchesItemText;
+      if (!tokens.length) return true;
+      const text = searchText(item);
+      if (searchMode === 'categories') return matchesQuery(text.category, tokens);
+      if (searchMode === 'items') return matchesQuery(text.item, tokens);
+      return matchesQuery(`${text.item} ${text.category}`, tokens);
     });
 
     return [...list].sort((a, b) => {
@@ -490,15 +499,9 @@ export default function HomePage() {
         count: allProducts.filter((p) => p.category === cat).length,
       }));
 
-    const matchingItems = q
-      ? allProducts
-          .filter(
-            (p) =>
-              p.name.toLowerCase().includes(q) ||
-              p.brand.toLowerCase().includes(q) ||
-              p.storeName.toLowerCase().includes(q),
-          )
-          .slice(0, 5)
+    const tokens = q.split(/\s+/).filter(Boolean);
+    const matchingItems = tokens.length
+      ? allProducts.filter((p) => matchesQuery(searchText(p).item, tokens)).slice(0, 8)
       : [];
 
     return {
@@ -829,7 +832,7 @@ export default function HomePage() {
 
             <button
               type="button"
-              className="btn-ghost-icon"
+              className="btn-ghost-icon btn-icon"
               onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
               aria-label="Toggle color theme"
               title="Toggle Obsidian / Silk theme"
@@ -941,6 +944,20 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+
+            <BrandRail
+              stores={stores}
+              products={allProducts}
+              activeStoreId={storeFilter}
+              onSelectStore={(id) => {
+                setStoreFilter(id);
+                requestAnimationFrame(() =>
+                  document
+                    .getElementById('results-anchor')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                );
+              }}
+            />
 
             {/* Search & Multi-Facet Filter Bar */}
             <div className="catalog-controls" id="catalog-controls">
@@ -1098,9 +1115,10 @@ export default function HomePage() {
 
                   <button
                     type="button"
-                    className="btn-ghost-icon"
+                    className="btn-ghost-icon btn-icon"
                     onClick={handleRefreshFromBackend}
-                    title="Refresh deals from backend"
+                    title="Refresh deals"
+                    aria-label="Refresh deals"
                   >
                     <RefreshCw size={15} className={loadingDeals ? 'spin' : ''} />
                   </button>
@@ -1180,18 +1198,66 @@ export default function HomePage() {
             </div>
 
             {/* Results Bar */}
-            <div className="results-bar">
-              <span>
-                Showing <strong>{filteredProducts.length}</strong> of {allProducts.length} curated items
-              </span>
+            <div className="results-bar" id="results-anchor">
+              <div className="results-summary">
+                <span className="results-count">
+                  <strong>{filteredProducts.length}</strong>{' '}
+                  {filteredProducts.length === 1 ? 'deal' : 'deals'}
+                  {searchQuery.trim() && (
+                    <>
+                      {' '}for <em>&ldquo;{searchQuery.trim()}&rdquo;</em>
+                    </>
+                  )}
+                </span>
+                <div className="active-filters">
+                  {storeFilter !== 'all' && (
+                    <button type="button" className="filter-pill" onClick={() => setStoreFilter('all')}>
+                      {storesMap[storeFilter]?.name ?? storeFilter} <X size={12} />
+                    </button>
+                  )}
+                  {categoryFilter !== 'All' && (
+                    <button type="button" className="filter-pill" onClick={() => setCategoryFilter('All')}>
+                      {categoryFilter} <X size={12} />
+                    </button>
+                  )}
+                  {genderFilter !== 'all' && (
+                    <button type="button" className="filter-pill" onClick={() => setGenderFilter('all')}>
+                      {genderFilter === 'women' ? "Women's" : genderFilter === 'men' ? "Men's" : 'Unisex & Home'}{' '}
+                      <X size={12} />
+                    </button>
+                  )}
+                  {verdictFilter !== 'all' && (
+                    <button type="button" className="filter-pill" onClick={() => setVerdictFilter('all')}>
+                      {getVerdictMeta(verdictFilter).label} <X size={12} />
+                    </button>
+                  )}
+                  {maxPriceFilter < PRICE_MAX && (
+                    <button type="button" className="filter-pill" onClick={() => setMaxPriceFilter(PRICE_MAX)}>
+                      Under {formatCurrency(maxPriceFilter)} <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="results-bar-actions">
+                {searchQuery.trim() && (categoryFilter !== 'All' || storeFilter !== 'all') && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setCategoryFilter('All');
+                      setStoreFilter('all');
+                    }}
+                  >
+                    <Search size={13} /> Search everywhere
+                  </button>
+                )}
                 {filteredProducts.length > 0 && (
                   <button
                     type="button"
-                    className="btn-ghost-sm"
+                    className="btn btn-ghost btn-sm"
                     onClick={() => handleSelectMany(filteredProducts)}
                   >
-                    <Plus size={13} /> Save All Visible ({filteredProducts.length})
+                    <Plus size={13} /> Save all {filteredProducts.length}
                   </button>
                 )}
                 {(searchQuery ||
@@ -1200,12 +1266,8 @@ export default function HomePage() {
                   storeFilter !== 'all' ||
                   verdictFilter !== 'all' ||
                   maxPriceFilter < PRICE_MAX) && (
-                  <button
-                    type="button"
-                    className="btn-ghost-sm"
-                    onClick={resetCatalogFilters}
-                  >
-                    Reset Filters
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={resetCatalogFilters}>
+                    <RefreshCw size={13} /> Reset
                   </button>
                 )}
               </div>
